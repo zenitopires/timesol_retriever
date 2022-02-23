@@ -81,7 +81,7 @@ struct Collection {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>>{
     let (client, connection) = tokio_postgres::connect("host=localhost user=postgres \
-    password=postgres dbname=magiceden", tokio_postgres::NoTls
+    password=admin dbname=magiceden", tokio_postgres::NoTls
     ).await?;
 
     tokio::spawn(async move {
@@ -114,12 +114,20 @@ async fn main() -> Result<(), Box<dyn Error>>{
         None => { println!("Nothing"); }
     }
 
+    client.execute(
+    "
+    CREATE TABLE IF NOT EXISTS collection_names (
+        symbol varchar(255) NOT NULL,
+        PRIMARY KEY (symbol)
+    )
+    ", &[]).await?;
+
     for symbol in collection_names {
-        client.query("INSERT INTO collection_names(name) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
+        client.query("INSERT INTO collection_names(symbol) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
     }
 
     let value: String;
-    let rows = client.query("SELECT name FROM collection_names", &[]).await?;
+    let rows = client.query("SELECT symbol FROM collection_names", &[]).await?;
 
     let mut present_collections: Vec<String> = Vec::new();
 
@@ -128,6 +136,17 @@ async fn main() -> Result<(), Box<dyn Error>>{
         present_collections.push(name.to_string().clone());
     }
 
+    client.execute(
+        "
+            CREATE TABLE IF NOT EXISTS collection_stats (
+                symbol varchar(255) NOT NULL,
+                floor_price double precision,
+                total_volume double precision,
+                total_listed bigint,
+                avg_24h_price double precision,
+                PRIMARY KEY (symbol)
+            )
+            ", &[]).await?;
     let collection_stats = client.query("SELECT symbol FROM collection_stats", &[]).await?;
 
     let mut stat_collections: Vec<String> = Vec::new();
@@ -200,9 +219,21 @@ async fn main() -> Result<(), Box<dyn Error>>{
                 None => 0.0
             };
 
-            client.execute("INSERT INTO collection_stats(symbol, floor_price, total_volume, \
-            total_listed, avg_24h_price) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
-                           &[&symbol, &floor_price, &volume_all, &listed_count, &avg_price]).await?;
+            client.execute(
+                "
+                INSERT INTO collection_stats
+                    (
+                    symbol,
+                    floor_price,
+                    total_volume,
+                    total_listed,
+                    avg_24h_price
+                    )
+                VALUES
+                    ($1, $2, $3, $4, $5)
+                ON CONFLICT DO NOTHING
+                ",
+                &[&symbol, &floor_price, &volume_all, &listed_count, &avg_price]).await?;
         }
         count += 1;
         // dbg!(res_content);
