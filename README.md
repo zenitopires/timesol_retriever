@@ -1,4 +1,4 @@
-#Solgraph Backend
+# Solgraph Backend
 
 ## Background
 Solgraph seeks to make data about a number of Solana NFT projects easily digestible for NFT buyers.
