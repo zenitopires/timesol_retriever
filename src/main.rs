@@ -86,71 +86,72 @@ async fn main() -> Result<(), Box<dyn Error>>{
 
     let mut count = 0;
     let collection_count = present_collections.len();
-    for name in present_collections {
-        if count < collection_count {
-            // if stat_collections.contains(&name) {
-            //     count += 1;
-            //     continue
-            // }
+    loop {
+        for name in &present_collections {
+            if count < collection_count {
+                // if stat_collections.contains(&name) {
+                //     count += 1;
+                //     continue
+                // }
 
-            let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+                let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
 
-            let mut res = surf::get(&endpoint).await?;
-            dbg!(res.status());
-
-            if res.status() == StatusCode::TooManyRequests {
-                println!("Too many request sent. Sleeping for 1 minute.");
-                tokio::time::sleep(Duration::from_secs(60)).await;
-                res = surf::get(&endpoint).await?;
+                let mut res = surf::get(&endpoint).await?;
                 dbg!(res.status());
-            }
 
-            let stats: serde_json::Value = res.body_json().await?;
+                if res.status() == StatusCode::TooManyRequests {
+                    println!("Too many request sent. Sleeping for 1 minute.");
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    res = surf::get(&endpoint).await?;
+                    dbg!(res.status());
+                }
 
-            dbg!(&stats);
+                let stats: serde_json::Value = res.body_json().await?;
 
-            let symbol = match stats.get("symbol") {
-                Some(_value) => match stats["symbol"].as_str() {
-                    Some(value) => value,
+                dbg!(&stats);
+
+                let symbol = match stats.get("symbol") {
+                    Some(_value) => match stats["symbol"].as_str() {
+                        Some(value) => value,
+                        None => "unknown symbol"
+                    },
                     None => "unknown symbol"
-                },
-                None => "unknown symbol"
-            };
+                };
 
-            let avg_price = match stats.get("avgPrice24hr") {
-                Some(_value) => match stats["avgPrice24hr"].as_f64() {
-                    Some(value) => value / LAMPORTS_PER_SOL,
+                let avg_price = match stats.get("avgPrice24hr") {
+                    Some(_value) => match stats["avgPrice24hr"].as_f64() {
+                        Some(value) => value / LAMPORTS_PER_SOL,
+                        None => 0.0
+                    },
                     None => 0.0
-                },
-                None => 0.0
-            };
+                };
 
-            let floor_price = match stats.get("floorPrice") {
-                Some(_value) =>  match stats["floorPrice"].as_f64() {
-                    Some(value) => value / LAMPORTS_PER_SOL,
+                let floor_price = match stats.get("floorPrice") {
+                    Some(_value) => match stats["floorPrice"].as_f64() {
+                        Some(value) => value / LAMPORTS_PER_SOL,
+                        None => 0.0
+                    },
                     None => 0.0
-                },
-                None => 0.0
-            };
+                };
 
-            let listed_count = match stats.get("listedCount") {
-                Some(_value) => match stats["listedCount"].as_i64() {
-                    Some(value) => value,
+                let listed_count = match stats.get("listedCount") {
+                    Some(_value) => match stats["listedCount"].as_i64() {
+                        Some(value) => value,
+                        None => 0i64
+                    },
                     None => 0i64
-                },
-                None => 0i64
-            };
+                };
 
-            let volume_all = match stats.get("volumeAll") {
-                Some(_value) => match stats["volumeAll"].as_f64() {
-                    Some(value) => value / LAMPORTS_PER_SOL,
+                let volume_all = match stats.get("volumeAll") {
+                    Some(_value) => match stats["volumeAll"].as_f64() {
+                        Some(value) => value / LAMPORTS_PER_SOL,
+                        None => 0.0
+                    },
                     None => 0.0
-                },
-                None => 0.0
-            };
+                };
 
-            client.execute(
-                "
+                client.execute(
+                    "
                 INSERT INTO collection_stats
                     (
                     symbol,
@@ -164,10 +165,13 @@ async fn main() -> Result<(), Box<dyn Error>>{
                     ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
                 ON CONFLICT DO NOTHING
                 ",
-                &[&symbol, &floor_price, &volume_all, &listed_count, &avg_price]).await?;
+                    &[&symbol, &floor_price, &volume_all, &listed_count, &avg_price]).await?;
+            }
+            count += 1;
+            // dbg!(res_content);
         }
-        count += 1;
-        // dbg!(res_content);
+        // New collections?
+        count = 0;
     }
 
     // for d in data {
