@@ -1,82 +1,9 @@
-mod api;
-mod database;
-
-use api::api_connection::{self, Connection};
-use database::db_connection::DB;
-
-use serde::{Deserialize, Serialize};
-
-// use postgres;
-
 use tokio_postgres;
-
 use std::error::Error;
 use std::time::Duration;
 use surf::StatusCode;
 
-mod aggregation;
-
-use aggregation::{Summary, Tweet, NewsPaper};
-
-#[derive(Deserialize, Serialize)]
-struct Device {
-    id: u32,
-    manufacturer: String
-}
-
 const LAMPORTS_PER_SOL: f64 = 1000000000.0;
-
-// #[tokio::main]
-// async fn main() -> Result<(), surf::Error> {
-//
-//
-//     let client = surf::Client::new();
-//
-//     let client_new = Connection::new();
-//
-//     let res1: serde_json::Value = client_new.client.recv_json(
-//             surf::get("https://api-mainnet.magiceden.dev/v2/collections?offset=0&limit=500")).await?;
-//
-//     dbg!(res1);
-//
-//
-//     // let mut res1: serde_json::Value = client.recv_json(
-//     //     surf::get("https://random-data-api.com/api/device/random_device")).await?;
-//
-//     // dbg!(res1);
-//
-//     // let mut res = surf::get("https://random-data-api.com/api/device/random_device").await?;
-//
-//     // let Device { manufacturer , id} = res.body_json().await?;
-//
-//     // println!("id: {} manufacturer: {}", id, manufacturer);
-//
-//     // let manu = data["manufacturer"].is_string();
-//
-//     // if manu {
-//     //     println!("It's a string!");
-//     //     match data["manufacturer"].as_str() {
-//     //         Some(value) => {
-//     //             println!("Manufacturer: {}", value);
-//     //         },
-//     //         None => {
-//     //             println!("No value found for manufacturer!");
-//     //         }
-//     //     }
-//     // }
-//
-//     // println!();
-//
-//     Ok(())
-// }
-
-#[derive(Debug)]
-struct Collection {
-    floorPrice: f64,
-    listedCount: i64,
-    symbol: String,
-    volumeAll: f64
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>>{
@@ -114,6 +41,9 @@ async fn main() -> Result<(), Box<dyn Error>>{
         None => { println!("Nothing"); }
     }
 
+    // Enable TimescaleDB Extension
+    client.execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[]).await?;
+
     client.execute(
     "
     CREATE TABLE IF NOT EXISTS collection_names (
@@ -126,13 +56,12 @@ async fn main() -> Result<(), Box<dyn Error>>{
         client.query("INSERT INTO collection_names(symbol) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
     }
 
-    let value: String;
     let rows = client.query("SELECT symbol FROM collection_names", &[]).await?;
 
     let mut present_collections: Vec<String> = Vec::new();
 
     for row in rows {
-        let mut name: &str = row.get(0);
+        let name: &str = row.get(0);
         present_collections.push(name.to_string().clone());
     }
 
@@ -144,9 +73,10 @@ async fn main() -> Result<(), Box<dyn Error>>{
                 total_volume double precision,
                 total_listed bigint,
                 avg_24h_price double precision,
-                PRIMARY KEY (symbol)
+                date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
             ", &[]).await?;
+    client.execute("SELECT create_hypertable('collection_stats', 'date', chunk_time_interval => INTERVAL '1 Day', if_not_exists => TRUE)", &[]).await?;
     let collection_stats = client.query("SELECT symbol FROM collection_stats", &[]).await?;
 
     let mut stat_collections: Vec<String> = Vec::new();
@@ -158,10 +88,10 @@ async fn main() -> Result<(), Box<dyn Error>>{
     let collection_count = present_collections.len();
     for name in present_collections {
         if count < collection_count {
-            if stat_collections.contains(&name) {
-                count += 1;
-                continue
-            }
+            // if stat_collections.contains(&name) {
+            //     count += 1;
+            //     continue
+            // }
 
             let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
 
@@ -180,7 +110,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
             dbg!(&stats);
 
             let symbol = match stats.get("symbol") {
-                Some(value) => match stats["symbol"].as_str() {
+                Some(_value) => match stats["symbol"].as_str() {
                     Some(value) => value,
                     None => "unknown symbol"
                 },
@@ -188,7 +118,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
             };
 
             let avg_price = match stats.get("avgPrice24hr") {
-                Some(value) => match stats["avgPrice24hr"].as_f64() {
+                Some(_value) => match stats["avgPrice24hr"].as_f64() {
                     Some(value) => value / LAMPORTS_PER_SOL,
                     None => 0.0
                 },
@@ -196,7 +126,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
             };
 
             let floor_price = match stats.get("floorPrice") {
-                Some(value) =>  match stats["floorPrice"].as_f64() {
+                Some(_value) =>  match stats["floorPrice"].as_f64() {
                     Some(value) => value / LAMPORTS_PER_SOL,
                     None => 0.0
                 },
@@ -204,7 +134,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
             };
 
             let listed_count = match stats.get("listedCount") {
-                Some(value) => match stats["listedCount"].as_i64() {
+                Some(_value) => match stats["listedCount"].as_i64() {
                     Some(value) => value,
                     None => 0i64
                 },
@@ -212,7 +142,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
             };
 
             let volume_all = match stats.get("volumeAll") {
-                Some(value) => match stats["volumeAll"].as_f64() {
+                Some(_value) => match stats["volumeAll"].as_f64() {
                     Some(value) => value / LAMPORTS_PER_SOL,
                     None => 0.0
                 },
@@ -227,10 +157,11 @@ async fn main() -> Result<(), Box<dyn Error>>{
                     floor_price,
                     total_volume,
                     total_listed,
-                    avg_24h_price
+                    avg_24h_price,
+                    date
                     )
                 VALUES
-                    ($1, $2, $3, $4, $5)
+                    ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
                 ON CONFLICT DO NOTHING
                 ",
                 &[&symbol, &floor_price, &volume_all, &listed_count, &avg_price]).await?;
@@ -255,13 +186,13 @@ async fn get_collection_names() -> Option<serde_json::Value> {
     res_content
 }
 
-#[tokio::main]
-async fn get_collection_stats(collection_name: String) -> Option<serde_json::Value> {
-    let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", collection_name);
-
-    let mut res = surf::get(endpoint).await.ok()?;
-
-    let res_content = res.body_json().await.ok()?;
-
-    res_content
-}
+// #[tokio::main]
+// async fn get_collection_stats(collection_name: String) -> Option<serde_json::Value> {
+//     let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", collection_name);
+//
+//     let mut res = surf::get(endpoint).await.ok()?;
+//
+//     let res_content = res.body_json().await.ok()?;
+//
+//     res_content
+// }
