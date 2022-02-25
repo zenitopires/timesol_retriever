@@ -3,12 +3,24 @@ use std::error::Error;
 use std::time::Duration;
 use surf::StatusCode;
 
-const LAMPORTS_PER_SOL: f64 = 1000000000.0;
+mod utils;
+use utils::config_reader::{Config, read_file, parse_yaml};
+
+mod magiceden;
+use magiceden::requests::{get_collection_names};
+use magiceden::parse::{parse_collection_names, parse_collection_stats};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>>{
-    let (client, connection) = tokio_postgres::connect("host=localhost user=postgres \
-    password=admin dbname=magiceden", tokio_postgres::NoTls
+async fn main() -> Result<(), Box<dyn Error>> {
+    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets.yaml") {
+        Ok(contents) => contents,
+        Err(e) => panic!("Could not read file. Reason: {:?}", e)
+    };
+
+    let db_config: Config = parse_yaml(config);
+    let cnxn_str = format!("host={} user={} password={} dbname={}", db_config.host, db_config.user, db_config.password, db_config.dbname);
+
+    let (client, connection) = tokio_postgres::connect(cnxn_str.as_str(), tokio_postgres::NoTls
     ).await?;
 
     tokio::spawn(async move {
@@ -24,22 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
         }
     }).await.expect("Thread panicked!");
 
-    let mut collection_names: Vec<String> = Vec::new();
-
-    match data.as_object() {
-        Some(obj) => {
-            match obj["collections"].as_array() {
-                Some(collections) => {
-                    for collection in collections {
-                        let symbol = collection["symbol"].as_str().unwrap();
-                        collection_names.push(symbol.to_string());
-                    }
-                },
-                None => { println!("nothing"); }
-            }
-        },
-        None => { println!("Nothing"); }
-    }
+    let collection_names = parse_collection_names(data);
 
     // Enable TimescaleDB Extension
     client.execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[]).await?;
@@ -108,47 +105,9 @@ async fn main() -> Result<(), Box<dyn Error>>{
 
                 let stats: serde_json::Value = res.body_json().await?;
 
-                dbg!(&stats);
+                let magiceden_stats = parse_collection_stats(stats);
 
-                let symbol = match stats.get("symbol") {
-                    Some(_value) => match stats["symbol"].as_str() {
-                        Some(value) => value,
-                        None => "unknown symbol"
-                    },
-                    None => "unknown symbol"
-                };
-
-                let avg_price = match stats.get("avgPrice24hr") {
-                    Some(_value) => match stats["avgPrice24hr"].as_f64() {
-                        Some(value) => value / LAMPORTS_PER_SOL,
-                        None => 0.0
-                    },
-                    None => 0.0
-                };
-
-                let floor_price = match stats.get("floorPrice") {
-                    Some(_value) => match stats["floorPrice"].as_f64() {
-                        Some(value) => value / LAMPORTS_PER_SOL,
-                        None => 0.0
-                    },
-                    None => 0.0
-                };
-
-                let listed_count = match stats.get("listedCount") {
-                    Some(_value) => match stats["listedCount"].as_i64() {
-                        Some(value) => value,
-                        None => 0i64
-                    },
-                    None => 0i64
-                };
-
-                let volume_all = match stats.get("volumeAll") {
-                    Some(_value) => match stats["volumeAll"].as_f64() {
-                        Some(value) => value / LAMPORTS_PER_SOL,
-                        None => 0.0
-                    },
-                    None => 0.0
-                };
+                dbg!(&magiceden_stats);
 
                 client.execute(
                     "
@@ -165,12 +124,16 @@ async fn main() -> Result<(), Box<dyn Error>>{
                     ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
                 ON CONFLICT DO NOTHING
                 ",
-                    &[&symbol, &floor_price, &volume_all, &listed_count, &avg_price]).await?;
+                    &[
+                        &magiceden_stats.symbol,
+                        &magiceden_stats.floor_price,
+                        &magiceden_stats.volume_all,
+                        &magiceden_stats.listed_count,
+                        &magiceden_stats.avg_price]).await?;
             }
             count += 1;
-            // dbg!(res_content);
         }
-        // New collections?
+        // TODO: Get new collections here?
         count = 0;
     }
 
@@ -181,14 +144,14 @@ async fn main() -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-#[tokio::main]
-async fn get_collection_names() -> Option<serde_json::Value> {
-    let mut res = surf::get("https://api-mainnet.magiceden.dev/all_collections").await.ok()?;
-
-    let res_content = res.body_json().await.ok()?;
-
-    res_content
-}
+// #[tokio::main]
+// async fn get_collection_names() -> Option<serde_json::Value> {
+//     let mut res = surf::get("https://api-mainnet.magiceden.dev/all_collections").await.ok()?;
+//
+//     let res_content = res.body_json().await.ok()?;
+//
+//     res_content
+// }
 
 // #[tokio::main]
 // async fn get_collection_stats(collection_name: String) -> Option<serde_json::Value> {
