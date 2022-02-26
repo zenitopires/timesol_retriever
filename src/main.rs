@@ -10,6 +10,10 @@ mod magiceden;
 use magiceden::requests::{get_collection_names};
 use magiceden::parse::{parse_collection_names, parse_collection_stats};
 
+mod database;
+use database::db_connection::Database;
+use crate::magiceden::requests::get_collection_stats;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets.yaml") {
@@ -18,16 +22,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let db_config: Config = parse_yaml(config);
-    let cnxn_str = format!("host={} user={} password={} dbname={}", db_config.host, db_config.user, db_config.password, db_config.dbname);
 
-    let (client, connection) = tokio_postgres::connect(cnxn_str.as_str(), tokio_postgres::NoTls
-    ).await?;
-
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("connection error: {}", e);
-        }
-    });
+    let database = Database::connect(db_config).await?;
 
     let data  = tokio::task::spawn_blocking(|| {
         match get_collection_names() {
@@ -39,9 +35,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let collection_names = parse_collection_names(data);
 
     // Enable TimescaleDB Extension
-    client.execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[]).await?;
+    database.client.execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[]).await?;
 
-    client.execute(
+    database.client.execute(
     "
     CREATE TABLE IF NOT EXISTS collection_names (
         symbol varchar(255) NOT NULL,
@@ -50,10 +46,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ", &[]).await?;
 
     for symbol in collection_names {
-        client.query("INSERT INTO collection_names(symbol) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
+        database.client.query("INSERT INTO collection_names(symbol) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
     }
 
-    let rows = client.query("SELECT symbol FROM collection_names", &[]).await?;
+    let rows = database.client.query("SELECT symbol FROM collection_names", &[]).await?;
 
     let mut present_collections: Vec<String> = Vec::new();
 
@@ -62,7 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         present_collections.push(name.to_string().clone());
     }
 
-    client.execute(
+    database.client.execute(
         "
             CREATE TABLE IF NOT EXISTS collection_stats (
                 symbol varchar(255) NOT NULL,
@@ -73,13 +69,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
             ", &[]).await?;
-    client.execute("SELECT create_hypertable('collection_stats', 'date', chunk_time_interval => INTERVAL '1 Day', if_not_exists => TRUE)", &[]).await?;
-    let collection_stats = client.query("SELECT symbol FROM collection_stats", &[]).await?;
+    database.client.execute("SELECT create_hypertable('collection_stats', 'date', chunk_time_interval => INTERVAL '1 Day', if_not_exists => TRUE)", &[]).await?;
+    let collection_stats = database.client.query("SELECT symbol FROM collection_stats", &[]).await?;
 
     let mut stat_collections: Vec<String> = Vec::new();
     for row in collection_stats {
         stat_collections.push(row.get(0));
     }
+
+    // get_collection_stats(&String::from("pawnshop_gnomies"));
+
+    let stats  = tokio::task::spawn_blocking(|| {
+        match get_collection_stats(&String::from("pawnshop_gnomies")) {
+            Some(value) => value,
+            None => serde_json::from_str("{}").unwrap()
+        }
+    }).await.expect("Thread panicked!");
+    dbg!(stats);
 
     let mut count = 0;
     let collection_count = present_collections.len();
@@ -91,45 +97,59 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 //     continue
                 // }
 
-                let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+                // let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+                //
+                // let mut res = surf::get(&endpoint).await?;
+                // dbg!(res.status());
+                //
+                // if res.status() == StatusCode::TooManyRequests {
+                //     println!("Too many request sent. Sleeping for 1 minute.");
+                //     tokio::time::sleep(Duration::from_secs(60)).await;
+                //     res = surf::get(&endpoint).await?;
+                //     dbg!(res.status());
+                // }
+                //
+                // let stats: serde_json::Value = res.body_json().await?;
 
-                let mut res = surf::get(&endpoint).await?;
-                dbg!(res.status());
+                // let stats  = tokio::task::spawn(|| {
+                //     match get_collection_stats(&name) {
+                //         Some(value) => value,
+                //         None => serde_json::from_str("{}").unwrap()
+                //     }
+                // }).await.expect("Thread panicked!");
 
-                if res.status() == StatusCode::TooManyRequests {
-                    println!("Too many request sent. Sleeping for 1 minute.");
-                    tokio::time::sleep(Duration::from_secs(60)).await;
-                    res = surf::get(&endpoint).await?;
-                    dbg!(res.status());
-                }
+                // let stats = match get_collection_stats(&name) {
+                //     Some(value) => value,
+                //     None => serde_json::from_str("{}").unwrap()
+                // };
 
-                let stats: serde_json::Value = res.body_json().await?;
+                // get_collection_stats(&name);
 
-                let magiceden_stats = parse_collection_stats(stats);
-
-                dbg!(&magiceden_stats);
-
-                client.execute(
-                    "
-                INSERT INTO collection_stats
-                    (
-                    symbol,
-                    floor_price,
-                    total_volume,
-                    total_listed,
-                    avg_24h_price,
-                    date
-                    )
-                VALUES
-                    ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-                ON CONFLICT DO NOTHING
-                ",
-                    &[
-                        &magiceden_stats.symbol,
-                        &magiceden_stats.floor_price,
-                        &magiceden_stats.volume_all,
-                        &magiceden_stats.listed_count,
-                        &magiceden_stats.avg_price]).await?;
+                // let magiceden_stats = parse_collection_stats(stats);
+                //
+                // dbg!(&magiceden_stats);
+                //
+                // database.client.execute(
+                //     "
+                // INSERT INTO collection_stats
+                //     (
+                //     symbol,
+                //     floor_price,
+                //     total_volume,
+                //     total_listed,
+                //     avg_24h_price,
+                //     date
+                //     )
+                // VALUES
+                //     ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                // ON CONFLICT DO NOTHING
+                // ",
+                //     &[
+                //         &magiceden_stats.symbol,
+                //         &magiceden_stats.floor_price,
+                //         &magiceden_stats.volume_all,
+                //         &magiceden_stats.listed_count,
+                //         &magiceden_stats.avg_price]).await?;
             }
             count += 1;
         }
