@@ -1,5 +1,5 @@
 use tokio::time::Duration;
-
+use std::error::Error;
 #[tokio::main]
 pub async fn get_collection_names() -> Option<serde_json::Value> {
     let endpoint = "https://api-mainnet.magiceden.dev/all_collections";
@@ -19,21 +19,51 @@ pub async fn get_collection_names() -> Option<serde_json::Value> {
 }
 
 #[tokio::main]
-pub async fn get_collection_stats(name: &String) -> Option<serde_json::Value> {
-    let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+pub async fn get_collection_stats(collection_name: String) -> Result<(serde_json::Value, surf::StatusCode), Box<dyn Error>> {
+    let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", collection_name);
 
-    let mut res = surf::get(&endpoint).await.ok()?;
-    dbg!(res.status());
+    let mut magiceden_res = surf::get(&endpoint).await;
 
-    if res.status() == surf::StatusCode::TooManyRequests {
-        println!("Too many request sent. Sleeping for 1 minute.");
-        tokio::time::sleep(Duration::from_secs(60)).await;
-        res = surf::get(&endpoint).await.ok()?;
-        dbg!(res.status());
-    }
+    // magiceden_res = magiceden_res.unwrap();
 
-    let stats = res.body_json().await.ok()?;
+    let mut res: surf::Response= match magiceden_res {
+        Ok(value) => value,
+        Err(e) => { panic!("Error: {}", e) }
+    };
 
-    stats
+    let stats: serde_json::Value  = match res.body_json().await.ok() {
+        Some(val) => val,
+        None => serde_json::from_str("{}").unwrap()
+    };
+    dbg!(&stats, res.status());
+
+    // if res.status() == surf::StatusCode::TooManyRequests {
+    //     println!("Too many request sent. Sleeping for 1 minute.");
+    //     tokio::time::sleep(Duration::from_secs(60)).await;
+    //     res = surf::get(&endpoint).await.ok()?;
+    //     dbg!(res.status());
+    // }
+    //
+    // let res_content = res.body_json().await.ok()?;
+
+    Ok((stats, res.status()))
 }
+//#[tokio::main]
+//pub async fn get_collection_stats(name: &String) -> serde_json::Value {
+//    let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+//
+//    let mut res = surf::get(&endpoint).await.ok();
+//    dbg!(res.status());
+//
+//    if res.status() == surf::StatusCode::TooManyRequests {
+//        println!("Too many request sent. Sleeping for 1 minute.");
+//        tokio::time::sleep(Duration::from_secs(60)).await;
+//        res = surf::get(&endpoint).await.ok();
+//        dbg!(res.status());
+//    }
+//
+//    let stats = res.body_json().await.ok();
+//
+//    stats
+//}
 
