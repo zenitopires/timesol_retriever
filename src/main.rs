@@ -17,7 +17,7 @@ use crate::magiceden::requests::get_collection_stats;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets.yaml") {
+    let config = match read_file("/Users/zenito/solgraph_backend/src/secrets.yaml") {
         Ok(contents) => contents,
         Err(e) => panic!("Could not read file. Reason: {:?}", e)
     };
@@ -34,6 +34,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }).await.expect("Thread panicked!");
 
     let collection_names = parse_collection_names(data);
+
+    // database.client.execute("SELECT 'CREATE DATABASE magiceden' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = \'magiceden\')\\gexec", &[]).await?;
 
     // Enable TimescaleDB Extension
     database.client.execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[]).await?;
@@ -78,34 +80,48 @@ async fn main() -> Result<(), Box<dyn Error>> {
         stat_collections.push(row.get(0));
     }
 
-    tokio::task::spawn_blocking(|| {
-        dbg!(get_collection_stats(String::from("pawnshop_gnomies")).unwrap());
-    });
+    // tokio::task::spawn_blocking(|| {
+    //     dbg!(get_collection_stats(String::from("pawnshop_gnomies")).unwrap());
+    // });
 
     let mut requests: Vec<_> = Vec::new();
 
+    // tokio::task::spawn_blocking(|| {
+    //     dbg!(get_collection_stats(String::from("pawnshop_gnomies")).unwrap());
+    // });
+
+    let mut count = 0;
     for name in present_collections {
+        if count < 100 {
+            let stats = tokio::task::spawn_blocking(|| {
+                match get_collection_stats(String::from(name)) {
+                    Ok(value) => {
+                        let (data, res) = value;
+                        (data, res)
+                    },
+                    Err(_) => serde_json::from_str("{}").unwrap()
+                }
+            });
 
-        let stats = tokio::task::spawn_blocking(|| {
-            match get_collection_stats(String::from(name)) {
-                Some(value) => value,
-                Err(_) => serde_json::from_str("{}").unwrap()
-            }
-        });
-
-        // let stats = tokio::task::spawn_blocking(|| {
-        //     match get_collection_stats(String::from(name)) {
-        //         Some(value) => match value {
-        //             Some(T) => T,
-        //             None => "Nothing"
-        //         },
-        //         Err(e) => panic!("FAILURE")
-        //     }
-        // });
-
-
-        requests.push(stats);
+            requests.push(stats);
+            count += 1;
+        }
     }
+
+    for task in requests {
+        match task.await {
+            Ok(value) => {
+                let (data, res) = value;
+                if res == surf::StatusCode::TooManyRequests {
+                    println!("Will sleep for a minute");
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                }
+                dbg!(data);
+            },
+            Err(e) => { panic!("Failure: {}", e); }
+        }
+    }
+
 
     // let mut count = 1;
     // for task in requests {
