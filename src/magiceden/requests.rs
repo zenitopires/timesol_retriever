@@ -35,7 +35,7 @@ pub async fn get_collection_stats(collection_name: String) -> Result<(serde_json
         Some(val) => val,
         None => serde_json::from_str("{}").unwrap()
     };
-    dbg!(&stats, res.status());
+    // dbg!(&stats, res.status());
 
     // if res.status() == surf::StatusCode::TooManyRequests {
     //     println!("Too many request sent. Sleeping for 1 minute.");

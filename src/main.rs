@@ -4,6 +4,8 @@ use std::time::Duration;
 use surf::StatusCode;
 use tokio_postgres::types::Timestamp;
 
+use futures::stream::{self, StreamExt};
+
 mod utils;
 use utils::config_reader::{Config, read_file, parse_yaml};
 
@@ -14,6 +16,7 @@ use magiceden::parse::{parse_collection_names, parse_collection_stats};
 mod database;
 use database::db_connection::Database;
 use crate::magiceden::requests::get_collection_stats;
+use crate::stream::FuturesUnordered;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -46,7 +49,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     ", &[]).await?;
 
-    for symbol in collection_names {
+    for symbol in &collection_names {
         database.client.query("INSERT INTO collection_names(symbol) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
     }
 
@@ -78,34 +81,62 @@ async fn main() -> Result<(), Box<dyn Error>> {
         stat_collections.push(row.get(0));
     }
 
-    tokio::task::spawn_blocking(|| {
-        dbg!(get_collection_stats(String::from("pawnshop_gnomies")).unwrap());
-    });
-
-    let mut requests: Vec<_> = Vec::new();
-
-    for name in present_collections {
-
-        let stats = tokio::task::spawn_blocking(|| {
-            match get_collection_stats(String::from(name)) {
-                Some(value) => value,
-                Err(_) => serde_json::from_str("{}").unwrap()
-            }
-        });
-
-        // let stats = tokio::task::spawn_blocking(|| {
-        //     match get_collection_stats(String::from(name)) {
-        //         Some(value) => match value {
-        //             Some(T) => T,
-        //             None => "Nothing"
-        //         },
-        //         Err(e) => panic!("FAILURE")
-        //     }
-        // });
+    // tokio::task::spawn_blocking(|| {
+    //     dbg!(get_collection_stats(String::from("pawnshop_gnomies")).unwrap());
+    // });
 
 
-        requests.push(stats);
+
+    let mut count = 0;
+    // let mut requests: Vec<_> = Vec::new();
+    let mut urls = vec![];
+
+    for name in &collection_names {
+        let url = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+        urls.push(url.clone());
     }
+
+    let mut futs = FuturesUnordered::new();
+    let mut retry = vec![];
+    loop {
+        for url in &urls {
+            if !retry.is_empty() {
+                println!("Retries found");
+                for mut url in &retry {
+                    println!("{}", url);
+                    futs.push(surf::get(url));
+                    // retry.pop();
+                }
+            }
+
+            futs.push(surf::get(url));
+
+            if futs.len() > 100 {
+                let mut res = futs.next().await.unwrap();
+                let status_code = res.as_ref().unwrap().status().clone();
+                if status_code == surf::StatusCode::TooManyRequests {
+                    println!("Sleeping for a minute");
+                    retry.push(url.clone());
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    continue;
+                }
+                // dbg!(res.as_ref().unwrap().status());
+                // let data: serde_json::Value = match res.unwrap().body_json().await {
+                //     Ok(val) => val,
+                //     Err(e) => { panic!("Encountered error. Continuing..."); }
+                // };
+            }
+        }
+        while let Some(res) = futs.next().await {
+            let data: serde_json::Value = res.unwrap().body_json().await?;
+            dbg!(data);
+        }
+    }
+
+
+
+
+    println!("Work completed!");
 
     // let mut count = 1;
     // for task in requests {
