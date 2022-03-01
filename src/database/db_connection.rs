@@ -14,7 +14,7 @@ pub struct Database {
 
 impl Database {
     pub async fn connect(db_config: Config) -> Result<Self, Box<dyn std::error::Error>> {
-        let cnxn_str = format!("host={} user={} password={} dbname={}", db_config.host, db_config.user, db_config.password, db_config.dbname);
+        let cnxn_str = format!("host={} user={}", db_config.host, db_config.user);
 
         let (client, connection) = tokio_postgres::connect(cnxn_str.as_str(), tokio_postgres::NoTls
         ).await?;
