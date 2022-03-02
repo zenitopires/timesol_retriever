@@ -27,6 +27,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let db_config: Config = parse_yaml(config);
 
+    dbg!(&db_config);
+
     let database = Database::connect(db_config).await?;
 
     let data  = tokio::task::spawn_blocking(|| {
@@ -97,40 +99,101 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut futs = FuturesUnordered::new();
-    let mut retry = vec![];
+    // let mut retry = vec![];
+    let mut count = 0;
     loop {
+        // TODO: Update collection names
+        //urls.push(String::from("hellopeople"));
         for url in &urls {
-            if !retry.is_empty() {
-                println!("Retries found");
-                for mut url in &retry {
-                    println!("{}", url);
-                    futs.push(surf::get(url));
-                    // retry.pop();
-                }
-            }
+            println!("Count: {}, futs.len(): {}", count, futs.len());
+            // if !retry.is_empty() {
+            //     println!("Retries found");
+            //     for mut url in &retry {
+            //         println!("{}", url);
+            //         futs.push(surf::get(url));
+            //         // retry.pop();
+            //     }
+            // }
 
             futs.push(surf::get(url));
+            count += 1;
 
-            if futs.len() > 100 {
-                let mut res = futs.next().await.unwrap();
-                let status_code = res.as_ref().unwrap().status().clone();
-                if status_code == surf::StatusCode::TooManyRequests {
-                    println!("Sleeping for a minute");
-                    retry.push(url.clone());
-                    tokio::time::sleep(Duration::from_secs(60)).await;
-                    continue;
-                }
+            // if futs.len() > 100 {
+            //     let mut res = futs.next().await.unwrap();
+            //     let status_code = res.as_ref().unwrap().status().clone();
+            //     if status_code == surf::StatusCode::TooManyRequests {
+            //         println!("Sleeping for a minute");
+            //         retry.push(url.clone());
+            //         println!("{}", url.clone());
+            //         tokio::time::sleep(Duration::from_secs(60)).await;
+            //         futs.push(surf::get(url));
+            //         //continue
+            //         //break
+            //     }
                 // dbg!(res.as_ref().unwrap().status());
                 // let data: serde_json::Value = match res.unwrap().body_json().await {
                 //     Ok(val) => val,
                 //     Err(e) => { panic!("Encountered error. Continuing..."); }
                 // };
+            // }
+            // Once we reach 100 requests, await current batch
+            if futs.len() == 118 {
+                while let Some(mut res) = futs.next().await {
+                    // match res {
+                    //     Ok(ref val) => { dbg!(val); },
+                    //     Err(e) => { panic!("{}", e); }
+                    // }
+                    let data: serde_json::Value = match res.unwrap().body_json().await {
+                        Ok(value) => value,
+                        Err(e) => serde_json::from_str("{}").unwrap()
+                    };
+
+                    let magiceden_stats = parse_collection_stats(data);
+
+                    database.client.execute("
+                        INSERT INTO collection_stats
+                        (
+                            symbol,
+                            floor_price,
+                            total_volume,
+                            total_listed,
+                            avg_24h_price,
+                            date
+                        )
+                    VALUES
+                        ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING
+                    ",
+                                            &[
+                                                &magiceden_stats.symbol,
+                                                &magiceden_stats.floor_price,
+                                                &magiceden_stats.volume_all,
+                                                &magiceden_stats.listed_count,
+                                                &magiceden_stats.avg_price]).await?; //{
+                    //     Ok(value) => {
+                    //         println!("Success: {}", value) },
+                    //     Err(e) => {
+                    //         panic!("Failed to insert data into collection_stats: {}", e)
+                    //     }
+                    // }
+                }
+                count = 0;
+                println!("Waiting a minute to avoid TooManyRequests HTTP error");
+                tokio::time::sleep(Duration::from_secs(60)).await;
             }
         }
-        while let Some(res) = futs.next().await {
-            let data: serde_json::Value = res.unwrap().body_json().await?;
-            dbg!(data);
-        }
+        // while let Some(mut res) = futs.next().await {
+        //     match res {
+        //         Ok(ref val) => { dbg!(val); },
+        //         Err(e) => { panic!("{}", e); }
+        //     }
+        //     let data: serde_json::Value = match res.unwrap().body_json().await.ok() {
+        //         Some(value) => value,
+        //         None => serde_json::from_str("{}").unwrap()
+        //     };
+        //     dbg!(data);
+        // }
+        // break
     }
 
 
