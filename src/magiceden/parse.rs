@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 const LAMPORTS_PER_SOL: f64 = 1000000000.0;
 
 #[derive(Debug)]
@@ -7,6 +9,13 @@ pub struct MagicEdenCollection {
     pub floor_price: f64,
     pub listed_count: i64,
     pub volume_all: f64
+}
+
+impl Display for MagicEdenCollection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "symbol: {}\navg_price: {}\nfloor_price: {}\nlisted_count: {}\nvolume_all: {}\n",
+        self.symbol, self.avg_price, self.floor_price, self.listed_count, self.volume_all)
+    }
 }
 
 pub fn parse_collection_names(data: serde_json::Value) -> Vec<String> {

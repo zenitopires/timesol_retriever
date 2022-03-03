@@ -1,8 +1,5 @@
 use std::error::Error;
 
-use tokio_postgres::{Client, Connection, Socket};
-use tokio_postgres::tls::{MakeTlsConnect, NoTlsStream};
-
 use crate::utils;
 use utils::config_reader::Config;
 

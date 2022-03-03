@@ -22,9 +22,7 @@ pub async fn get_collection_names() -> Option<serde_json::Value> {
 pub async fn get_collection_stats(collection_name: String) -> Result<(serde_json::Value, surf::StatusCode), Box<dyn Error>> {
     let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", collection_name);
 
-    let mut magiceden_res = surf::get(&endpoint).await;
-
-    // magiceden_res = magiceden_res.unwrap();
+    let magiceden_res = surf::get(&endpoint).await;
 
     let mut res: surf::Response= match magiceden_res {
         Ok(value) => value,
@@ -48,22 +46,3 @@ pub async fn get_collection_stats(collection_name: String) -> Result<(serde_json
 
     Ok((stats, res.status()))
 }
-//#[tokio::main]
-//pub async fn get_collection_stats(name: &String) -> serde_json::Value {
-//    let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
-//
-//    let mut res = surf::get(&endpoint).await.ok();
-//    dbg!(res.status());
-//
-//    if res.status() == surf::StatusCode::TooManyRequests {
-//        println!("Too many request sent. Sleeping for 1 minute.");
-//        tokio::time::sleep(Duration::from_secs(60)).await;
-//        res = surf::get(&endpoint).await.ok();
-//        dbg!(res.status());
-//    }
-//
-//    let stats = res.body_json().await.ok();
-//
-//    stats
-//}
-
