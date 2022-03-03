@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::time::Duration;
+use std::env;
 
 use log::{info, trace, debug, warn};
 use env_logger;
@@ -22,15 +23,8 @@ mod database;
 use database::db_connection::Database;
 use crate::stream::FuturesUnordered;
 
-pub mod built_info {
-    // The file has been placed there by the build script.
+mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}
-
-#[cfg(feature = "chrono")]
-fn built_time() -> built::chrono::DateTime<built::chrono::Local> {
-    built::util::strptime(built_info::BUILT_TIME_UTC)
-        .with_timezone(&built::chrono::offset::Local)
 }
 
 #[tokio::main]
@@ -38,20 +32,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
+    info!("Built for {}", built_info::TARGET);
     info!("Package authors: {}", built_info::PKG_AUTHORS);
     info!("Repository: {}", built_info::PKG_REPOSITORY);
-    #[cfg(feature = "semver")]
-    debug!("{:?}", built_info::DEPENDENCIES);
+//    #[cfg(feature = "semver")]
+    // debug!("{:?}", built_info::DEPENDENCIES);
     info!("Beginning retrieval...");
 
-    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets.yaml") {
+    let config = match read_file("C:\\Users\\Work\\CLionProjects\\solgraph_backend\\src\\secrets\
+    .yaml") {
         Ok(contents) => contents,
         Err(e) => panic!("Could not read file. Reason: {:?}", e)
     };
 
     let db_config: Config = parse_yaml(config);
 
-    dbg!(&db_config);
+    // dbg!(&db_config);
 
     let database = Database::connect(db_config).await?;
 
@@ -114,6 +110,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         urls.push(url.clone());
     }
 
+    let mut unknown_symbols = 0;
     let mut futs = FuturesUnordered::new();
     loop {
         // TODO: Update collection names
@@ -132,7 +129,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                     debug!("{:?}", magiceden_stats);
 
-                    database.client.execute("
+                    if magiceden_stats.symbol == "unknown symbol" {
+                        unknown_symbols += 1;
+                    } else {
+                        database.client.execute("
                         INSERT INTO collection_stats
                         (
                             symbol,
@@ -146,20 +146,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
                     ON CONFLICT DO NOTHING
                     ",
-                                            &[
-                                                &magiceden_stats.symbol,
-                                                &magiceden_stats.floor_price,
-                                                &magiceden_stats.volume_all,
-                                                &magiceden_stats.listed_count,
-                                                &magiceden_stats.avg_price]).await?; //{
-                    //     Ok(value) => {
-                    //         println!("Success: {}", value) },
-                    //     Err(e) => {
-                    //         panic!("Failed to insert data into collection_stats: {}", e)
-                    //     }
-                    // }
+                                                &[
+                                                    &magiceden_stats.symbol,
+                                                    &magiceden_stats.floor_price,
+                                                    &magiceden_stats.volume_all,
+                                                    &magiceden_stats.listed_count,
+                                                    &magiceden_stats.avg_price]).await?;
+                    }
                 }
+                info!("Unknown collections received: {}. {}",
+                    unknown_symbols,
+                    if unknown_symbols > 0 { "Will not add them to database." }
+                    else { "" });
                 info!("Waiting a minute to avoid TooManyRequests HTTP error");
+                unknown_symbols = 0;
                 tokio::time::sleep(Duration::from_secs(60)).await;
             }
         }
