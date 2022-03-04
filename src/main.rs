@@ -3,9 +3,14 @@
 use std::error::Error;
 use std::time::Duration;
 
-use log::{info, debug, error};
-use env_logger;
+// use log::{info, debug, error};
+// use env_logger;
 use futures::stream::{self, StreamExt};
+
+use tracing::{info, debug, error};
+use tracing_subscriber;
+
+use tracing_appender;
 
 mod utils;
 use utils::config_reader::{Config, read_file, parse_yaml};
@@ -25,17 +30,17 @@ mod built_info {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    let file_appender = tracing_appender::rolling::hourly("C:\\Users\\Work\\Desktop", "prefix.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    tracing_subscriber::fmt().with_ansi(false).with_writer(non_blocking).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
     info!("Package authors: {}", built_info::PKG_AUTHORS);
     info!("Repository: {}", built_info::PKG_REPOSITORY);
-//    #[cfg(feature = "semver")]
-    // debug!("{:?}", built_info::DEPENDENCIES);
     info!("Beginning collection retrieval...");
 
-    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets\
+    let config = match read_file("C:\\Users\\Work\\CLionProjects\\solgraph_backend\\src\\secrets\
     .yaml") {
         Ok(contents) => contents,
         Err(e) => panic!("Could not read file. Reason: {:?}", e)

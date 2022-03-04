@@ -24,7 +24,7 @@ impl Database {
             match connection.await {
                 Ok(success) => { println!("{:?}", success); info!("DB connection was successful")
                 ; },
-                Err(e) => { warn!("Connection failed!"); }
+                Err(e) => { warn!("Connection failed! Reason: {}", e); }
             }
         });
 
