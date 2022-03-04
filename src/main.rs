@@ -2,15 +2,10 @@
 
 use std::error::Error;
 use std::time::Duration;
-use std::env;
 
-use log::{info, trace, debug, warn};
+use log::{info, debug, error};
 use env_logger;
-use tokio_postgres;
-use surf::StatusCode;
-use tokio_postgres::types::Timestamp;
 use futures::stream::{self, StreamExt};
-use built;
 
 mod utils;
 use utils::config_reader::{Config, read_file, parse_yaml};
@@ -21,6 +16,7 @@ use magiceden::parse::{parse_collection_names, parse_collection_stats};
 
 mod database;
 use database::db_connection::Database;
+use crate::magiceden::requests::ME_MAX_REQUESTS;
 use crate::stream::FuturesUnordered;
 
 mod built_info {
@@ -37,17 +33,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Repository: {}", built_info::PKG_REPOSITORY);
 //    #[cfg(feature = "semver")]
     // debug!("{:?}", built_info::DEPENDENCIES);
-    info!("Beginning retrieval...");
+    info!("Beginning collection retrieval...");
 
-    let config = match read_file("C:\\Users\\Work\\CLionProjects\\solgraph_backend\\src\\secrets\
+    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets\
     .yaml") {
         Ok(contents) => contents,
         Err(e) => panic!("Could not read file. Reason: {:?}", e)
     };
 
     let db_config: Config = parse_yaml(config);
-
-    // dbg!(&db_config);
 
     let database = Database::connect(db_config).await?;
 
@@ -118,11 +112,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             futs.push(surf::get(url));
 
             // Once we reach 100 requests, await current batch
-            if futs.len() == 118 {
+            let mut data_inserted = 0;
+            if futs.len() == ME_MAX_REQUESTS {
+                info!("Reached max number of collections received. \
+                Attempting to unload data into database...");
                 while let Some(res) = futs.next().await {
                     let data: serde_json::Value = match res.unwrap().body_json().await {
                         Ok(value) => value,
-                        Err(_e) => serde_json::from_str("{}").unwrap()
+                        Err(e) => {
+                            error!("Error occured: {}. Using empty JSON now.", e);
+                            serde_json::from_str("{}").unwrap()
+                        }
                     };
 
                     let magiceden_stats = parse_collection_stats(data);
@@ -134,30 +134,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     } else {
                         database.client.execute("
                         INSERT INTO collection_stats
-                        (
-                            symbol,
-                            floor_price,
-                            total_volume,
-                            total_listed,
-                            avg_24h_price,
-                            date
-                        )
-                    VALUES
-                        ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-                    ON CONFLICT DO NOTHING
-                    ",
-                                                &[
-                                                    &magiceden_stats.symbol,
-                                                    &magiceden_stats.floor_price,
-                                                    &magiceden_stats.volume_all,
-                                                    &magiceden_stats.listed_count,
-                                                    &magiceden_stats.avg_price]).await?;
+                        (symbol, floor_price, total_volume,
+                         total_listed, avg_24h_price, date)
+                        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                            ON CONFLICT DO NOTHING
+                    ", &[
+                            &magiceden_stats.symbol,
+                            &magiceden_stats.floor_price,
+                            &magiceden_stats.volume_all,
+                            &magiceden_stats.listed_count,
+                            &magiceden_stats.avg_price]).await?;
+                        data_inserted += 1;
                     }
                 }
-                info!("Unknown collections received: {}. {}",
-                    unknown_symbols,
+                info!("Unknown collections received: {}. {}", unknown_symbols,
                     if unknown_symbols > 0 { "Will not add them to database." }
                     else { "" });
+                info!("Number of collections inserted into database: {}/{}", data_inserted, ME_MAX_REQUESTS);
                 info!("Waiting a minute to avoid TooManyRequests HTTP error");
                 unknown_symbols = 0;
                 tokio::time::sleep(Duration::from_secs(60)).await;
