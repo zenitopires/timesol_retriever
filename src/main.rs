@@ -7,7 +7,7 @@ use std::time::Duration;
 // use env_logger;
 use futures::stream::{self, StreamExt};
 
-use tracing::{info, debug, error};
+use tracing::{info, debug, error, warn, Level};
 use tracing_subscriber;
 
 use tracing_appender;
@@ -30,9 +30,10 @@ mod built_info {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let file_appender = tracing_appender::rolling::hourly("C:\\Users\\Work\\Desktop", "prefix.log");
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-    tracing_subscriber::fmt().with_ansi(false).with_writer(non_blocking).init();
+    // let file_appender = tracing_appender::rolling::hourly("C:\\Users\\Zenito\\Desktop", "retriever.log");
+    // let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    // tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
@@ -40,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Repository: {}", built_info::PKG_REPOSITORY);
     info!("Beginning collection retrieval...");
 
-    let config = match read_file("C:\\Users\\Work\\CLionProjects\\solgraph_backend\\src\\secrets\
+    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets\
     .yaml") {
         Ok(contents) => contents,
         Err(e) => panic!("Could not read file. Reason: {:?}", e)
@@ -74,15 +75,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         database.client.query("INSERT INTO collection_names(symbol) VALUES ($1) ON CONFLICT DO NOTHING", &[&symbol]).await?;
     }
 
-    let rows = database.client.query("SELECT symbol FROM collection_names", &[]).await?;
-
-    let mut present_collections: Vec<String> = Vec::new();
-
-    for row in rows {
-        let name: &str = row.get(0);
-        present_collections.push(name.to_string().clone());
-    }
-
     database.client.execute(
         "
             CREATE TABLE IF NOT EXISTS collection_stats (
@@ -95,12 +87,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             )
             ", &[]).await?;
     database.client.execute("SELECT create_hypertable('collection_stats', 'date', chunk_time_interval => INTERVAL '1 Day', if_not_exists => TRUE)", &[]).await?;
-    let collection_stats = database.client.query("SELECT symbol FROM collection_stats", &[]).await?;
-
-    let mut stat_collections: Vec<String> = Vec::new();
-    for row in collection_stats {
-        stat_collections.push(row.get(0));
-    }
 
     let mut urls = vec![];
 
@@ -125,7 +111,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let data: serde_json::Value = match res.unwrap().body_json().await {
                         Ok(value) => value,
                         Err(e) => {
-                            error!("Error occured: {}. Using empty JSON now.", e);
+                            warn!("Error occured: {}. Will use an empty JSON.", e);
                             serde_json::from_str("{}").unwrap()
                         }
                     };
