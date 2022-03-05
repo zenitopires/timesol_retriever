@@ -31,10 +31,14 @@ mod built_info {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // let file_appender = tracing_appender::rolling::hourly("C:\\Users\\Zenito\\Desktop", "retriever.log");
-    // let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-    // tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    let log_path = match std::env::var("log_path") {
+        Ok(val) => val,
+        Err(e) => { panic!("Issue with log_path! Reason: {}", e); }
+    };
+    let file_appender = tracing_appender::rolling::hourly("C:\\Users\\Zenito\\Desktop", "retriever.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
+    // tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
@@ -44,7 +48,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let config_path = match std::env::var("config_path") {
         Ok(val) => val,
-        Err(e) => { panic!("Could not find environment variable config_path! Reason: {}", e); }
+        Err(e) => { panic!("Issue with config_path! Reason: {}", e); }
     };
 
     let config = match read_file(config_path.as_str()) {
