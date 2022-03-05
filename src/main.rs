@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::time::Duration;
+use std::env;
 
 // use log::{info, debug, error};
 // use env_logger;
@@ -41,8 +42,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Repository: {}", built_info::PKG_REPOSITORY);
     info!("Beginning collection retrieval...");
 
-    let config = match read_file("C:\\Users\\Zenito\\CLionProjects\\solgraph_backend\\src\\secrets\
-    .yaml") {
+    let config_path = match std::env::var("config_path") {
+        Ok(val) => val,
+        Err(e) => { panic!("Could not find environment variable config_path! Reason: {}", e); }
+    };
+
+    let config = match read_file(config_path.as_str()) {
         Ok(contents) => contents,
         Err(e) => panic!("Could not read file. Reason: {:?}", e)
     };
