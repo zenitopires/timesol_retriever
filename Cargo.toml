@@ -17,6 +17,7 @@ futures = "0.3.21"
 tokio-postgres = { version="0.7.5", features=["with-chrono-0_4"] }
 serde_yaml = "0.8.23"
 tracing = "0.1.31"
+tracing-core = "0.1.22"
 tracing-appender = "0.2.1"
 tracing-subscriber = "0.3.9"
 log = "0.4.14"

@@ -3,6 +3,7 @@
 use std::error::Error;
 use std::time::Duration;
 use std::env;
+use std::{sync::Arc, fs::File};
 
 // use log::{info, debug, error};
 // use env_logger;
@@ -10,6 +11,8 @@ use futures::stream::{self, StreamExt};
 
 use tracing::{info, debug, error, warn, Level};
 use tracing_subscriber;
+use tracing_core::Metadata;
+use tracing_subscriber::prelude::*;
 
 use tracing_appender;
 
@@ -31,14 +34,23 @@ mod built_info {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let log_path = match std::env::var("log_path") {
+    let log_path = match std::env::var("trace_path") {
         Ok(val) => val,
-        Err(e) => { panic!("Issue with log_path! Reason: {}", e); }
+        Err(e) => { panic!("Issue with trace_path! Reason: {}", e); }
     };
-    let file_appender = tracing_appender::rolling::hourly("C:\\Users\\Zenito\\Desktop", "retriever.log");
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-    tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
-    // tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    let mut file_appender = tracing_appender::rolling::hourly(log_path, "retriever.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking( file_appender);
+     // non_blocking.with_filter(|meta| meta.target() != "tokio_util");
+    // let access_log = Arc::new(File::create("access.log")?);
+
+    // let mk_writer = access_log
+    //     // Only write events with the target "http::access_log" to the
+    //     // access log file.
+    //     .with_filter(|meta| meta.target() == "tokio_util::codec")
+    //     // Write events with all other targets to stdout.
+    //     .or_else(std::io::stdout);
+    // tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
@@ -117,35 +129,76 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 info!("Reached max number of collections received. \
                 Attempting to unload data into database...");
                 while let Some(res) = futs.next().await {
-                    let data: serde_json::Value = match res.unwrap().body_json().await {
-                        Ok(value) => value,
-                        Err(e) => {
-                            warn!("Error occured: {}. Will use an empty JSON.", e);
-                            serde_json::from_str("{}").unwrap()
-                        }
-                    };
+                    dbg!(&res);
+                    match res {
+                        Ok(ref val) => {
+                            if val.status() == surf::StatusCode::Ok {
+                                info!("Status OK. Attempting to get stats from MagicEden.");
+                                let data: serde_json::Value = match res.unwrap().body_json().await {
+                                    Ok(value) => value,
+                                    Err(e) => {
+                                        warn!("Error occured: {}. Will use an empty JSON.", e);
+                                        serde_json::from_str("{}").unwrap()
+                                    }
+                                };
 
-                    let magiceden_stats = parse_collection_stats(data);
+                                let magiceden_stats = parse_collection_stats(data);
 
-                    debug!("{:?}", magiceden_stats);
+                                debug!("{:?}", magiceden_stats);
 
-                    if magiceden_stats.symbol == "unknown symbol" {
-                        unknown_symbols += 1;
-                    } else {
-                        database.client.execute("
+                                if magiceden_stats.symbol == "unknown symbol" {
+                                    unknown_symbols += 1;
+                                } else {
+                                    database.client.execute("
                         INSERT INTO collection_stats
                         (symbol, floor_price, total_volume,
                          total_listed, avg_24h_price, date)
                         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
                             ON CONFLICT DO NOTHING
                     ", &[
-                            &magiceden_stats.symbol,
-                            &magiceden_stats.floor_price,
-                            &magiceden_stats.volume_all,
-                            &magiceden_stats.listed_count,
-                            &magiceden_stats.avg_price]).await?;
-                        data_inserted += 1;
+                                        &magiceden_stats.symbol,
+                                        &magiceden_stats.floor_price,
+                                        &magiceden_stats.volume_all,
+                                        &magiceden_stats.listed_count,
+                                        &magiceden_stats.avg_price]).await?;
+                                    data_inserted += 1;
+                                }
+                            } else {
+                                warn!("Status was not OK. Skipping.");
+                                continue
+                            }
+                        },
+                        Err(e) => { warn!("Issue with response: {}", e); }
                     }
+                    // let data: serde_json::Value = match res.unwrap().body_json().await {
+                    //     Ok(value) => value,
+                    //     Err(e) => {
+                    //         warn!("Error occured: {}. Will use an empty JSON.", e);
+                    //         serde_json::from_str("{}").unwrap()
+                    //     }
+                    // };
+
+                    // let magiceden_stats = parse_collection_stats(data);
+                    //
+                    // debug!("{:?}", magiceden_stats);
+                    //
+                    // if magiceden_stats.symbol == "unknown symbol" {
+                    //     unknown_symbols += 1;
+                    // } else {
+                    //     database.client.execute("
+                    //     INSERT INTO collection_stats
+                    //     (symbol, floor_price, total_volume,
+                    //      total_listed, avg_24h_price, date)
+                    //     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                    //         ON CONFLICT DO NOTHING
+                    // ", &[
+                    //         &magiceden_stats.symbol,
+                    //         &magiceden_stats.floor_price,
+                    //         &magiceden_stats.volume_all,
+                    //         &magiceden_stats.listed_count,
+                    //         &magiceden_stats.avg_price]).await?;
+                    //     data_inserted += 1;
+                    // }
                 }
                 info!("Unknown collections received: {}. {}", unknown_symbols,
                     if unknown_symbols > 0 { "Will not add them to database." }
@@ -154,6 +207,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 info!("Waiting a minute to avoid TooManyRequests HTTP error");
                 unknown_symbols = 0;
                 tokio::time::sleep(Duration::from_secs(60)).await;
+
             }
         }
     }
