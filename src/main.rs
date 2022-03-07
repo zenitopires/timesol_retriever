@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     // Write events with all other targets to stdout.
     //     .or_else(std::io::stdout);
     // tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt().with_max_level(Level::TRACE).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
