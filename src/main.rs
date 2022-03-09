@@ -26,7 +26,7 @@ use magiceden::parse::{parse_collection_names, parse_collection_stats};
 mod database;
 use database::db_connection::Database;
 use crate::magiceden::requests::ME_MAX_REQUESTS;
-use crate::stream::FuturesUnordered;
+use crate::stream::{FuturesOrdered, FuturesUnordered};
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     // Write events with all other targets to stdout.
     //     .or_else(std::io::stdout);
     // tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt().with_max_level(Level::WARN).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
@@ -116,12 +116,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
         urls.push(url.clone());
     }
 
+    let mut finished_loop: bool = false;
     let mut unknown_symbols = 0;
-    let mut futs = FuturesUnordered::new();
+    let mut futs = FuturesOrdered::new();
     loop {
         // TODO: Update collection names
         for url in &urls {
+
+
             futs.push(surf::get(url));
+
+            database.client.execute("\
+                UPDATE retriever_state \
+                SET symbol = $1, finished_loop = $2, time = CURRENT_TIMESTAMP where symbol_id = 1",
+        &[url, &finished_loop
+            ]).await?;
 
             // Once we reach 100 requests, await current batch
             let mut data_inserted = 0;
@@ -129,7 +138,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 info!("Reached max number of collections received. \
                 Attempting to unload data into database...");
                 while let Some(res) = futs.next().await {
-                    dbg!(&res);
+                    dbg!(&res.as_ref().unwrap().status());
                     match res {
                         Ok(ref val) => {
                             if val.status() == surf::StatusCode::Ok {
@@ -144,7 +153,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                                 let magiceden_stats = parse_collection_stats(data);
 
-                                debug!("{:?}", magiceden_stats);
+                                dbg!("{:?}", &magiceden_stats);
+
+                                debug!("{:?}", &magiceden_stats);
 
                                 if magiceden_stats.symbol == "unknown symbol" {
                                     unknown_symbols += 1;
@@ -210,6 +221,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             }
         }
+        // Once loop is finished mark it as true
+        // database.client.execute()
     }
 
     Ok(())
