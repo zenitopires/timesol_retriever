@@ -40,15 +40,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let mut file_appender = tracing_appender::rolling::hourly(log_path, "retriever.log");
     let (non_blocking, guard) = tracing_appender::non_blocking( file_appender);
-     // non_blocking.with_filter(|meta| meta.target() != "tokio_util");
-    // let access_log = Arc::new(File::create("access.log")?);
-
-    // let mk_writer = access_log
-    //     // Only write events with the target "http::access_log" to the
-    //     // access log file.
-    //     .with_filter(|meta| meta.target() == "tokio_util::codec")
-    //     // Write events with all other targets to stdout.
-    //     .or_else(std::io::stdout);
     tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
     // tracing_subscriber::fmt().with_max_level(Level::TRACE).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
@@ -208,7 +199,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 info!("Reached max number of collections received. \
                 Attempting to unload data into database...");
                 while let Some(res) = futs.next().await {
-                    dbg!(&res.as_ref().unwrap().status());
+                    //dbg!(&res.as_ref().unwrap().status());
                     match res {
                         Ok(ref val) => {
                             if val.status() == surf::StatusCode::Ok {
@@ -223,7 +214,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                                 let magiceden_stats = parse_collection_stats(data);
 
-                                dbg!("{:?}", &magiceden_stats);
+                                //dbg!("{:?}", &magiceden_stats);
 
                                 debug!("{:?}", &magiceden_stats);
 
