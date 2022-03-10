@@ -263,6 +263,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         // Once loop is finished mark it as true
+        info!("Iteration of collection complete. Reiteration beginning soon.");
         finished_loop = true;
         // database.client.execute(
         //     "
