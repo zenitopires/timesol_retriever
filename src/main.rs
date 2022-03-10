@@ -49,8 +49,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     .with_filter(|meta| meta.target() == "tokio_util::codec")
     //     // Write events with all other targets to stdout.
     //     .or_else(std::io::stdout);
-    // tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
-    tracing_subscriber::fmt().with_max_level(Level::TRACE).init();
+    tracing_subscriber::fmt().with_max_level(Level::TRACE).with_ansi(false).with_writer(non_blocking).init();
+    // tracing_subscriber::fmt().with_max_level(Level::TRACE).init();
     info!("Starting {}, version: {}", built_info::PKG_NAME, built_info::PKG_VERSION);
     info!("Host: {}", built_info::HOST);
     info!("Built for {}", built_info::TARGET);
@@ -170,7 +170,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 DELETE from retriever_state
                 WHERE symbol_id = 1
                 ",
-            &[]);
+            &[]).await?;
         }
         // TODO: Update collection names
         for url in &urls {
@@ -179,6 +179,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     trace!("url does not match last known url before crash! Skipping");
                     continue;
                 } else {
+                    // Set last_known_connection to be an 'empty'
+                    last_known_collection = "";
                     info!("Continuing from last known collection: {}", url);
                 }
             }
