@@ -1,0 +1,16 @@
+[Unit]
+Description=solgraph retriever service that gathers information about collections from magicedenm
+After=network.target
+
+[Service]
+Environment="config_path=/home/ubuntu/secrets.yaml"
+Environment="trace_path=/home/ubuntu/"
+Type=simple
+Restart=always
+RestartSec=90
+StartLimitInterval=0
+User=root
+ExecStart=/home/ubuntu/solgraph_backend/target/release/solgraph_retriever
+
+[Install]
+WantedBy=multi-user.target

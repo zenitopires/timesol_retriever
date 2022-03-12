@@ -14,3 +14,14 @@ database that uses the TimescaleDB extension for time-series data.
 * Serde JSON --> For parsing JSON data.
 * PostgreSQL --> The best database.
 * TimescaleDB --> Better than InfluxDB.
+
+## Code Style
+* For Rust we use [fmt-rfcs](https://github.com/rust-dev-tools/fmt-rfcs)
+* For SQL we use [SQL Style Guide by Simon Holywell](https://www.sqlstyle.guide/)
+
+## How to Run Retriever
+
+Set environment variables
+
+* config_path -- Path to DB credentials
+* trace_path -- Set location to where trace files should be saved
