@@ -13,8 +13,11 @@ pub struct MagicEdenCollection {
 
 impl Display for MagicEdenCollection {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "symbol: {}\navg_price: {}\nfloor_price: {}\nlisted_count: {}\nvolume_all: {}\n",
-        self.symbol, self.avg_price, self.floor_price, self.listed_count, self.volume_all)
+        write!(
+            f,
+            "symbol: {}\navg_price: {}\nfloor_price: {}\nlisted_count: {}\nvolume_all: {}\n",
+            self.symbol, self.avg_price, self.floor_price, self.listed_count, self.volume_all
+        )
     }
 }
 
