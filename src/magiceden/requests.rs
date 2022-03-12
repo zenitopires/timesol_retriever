@@ -20,7 +20,10 @@ pub async fn get_collection_names() -> Option<serde_json::Value> {
 
 #[tokio::main]
 pub async fn get_collection_stats(name: &String) -> Option<serde_json::Value> {
-    let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
+    let endpoint = format!(
+        "https://api-mainnet.magiceden.dev/v2/collections/{}/stats",
+        name
+    );
 
     let mut res = surf::get(&endpoint).await.ok()?;
     dbg!(res.status());
@@ -36,4 +39,3 @@ pub async fn get_collection_stats(name: &String) -> Option<serde_json::Value> {
 
     stats
 }
-

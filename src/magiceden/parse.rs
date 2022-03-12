@@ -6,25 +6,27 @@ pub struct MagicEdenCollection {
     pub avg_price: f64,
     pub floor_price: f64,
     pub listed_count: i64,
-    pub volume_all: f64
+    pub volume_all: f64,
 }
 
 pub fn parse_collection_names(data: serde_json::Value) -> Vec<String> {
     let mut collection_names: Vec<String> = Vec::new();
 
     match data.as_object() {
-        Some(obj) => {
-            match obj["collections"].as_array() {
-                Some(collections) => {
-                    for collection in collections {
-                        let symbol = collection["symbol"].as_str().unwrap();
-                        collection_names.push(symbol.to_string());
-                    }
-                },
-                None => { println!("nothing"); }
+        Some(obj) => match obj["collections"].as_array() {
+            Some(collections) => {
+                for collection in collections {
+                    let symbol = collection["symbol"].as_str().unwrap();
+                    collection_names.push(symbol.to_string());
+                }
+            }
+            None => {
+                println!("nothing");
             }
         },
-        None => { println!("Nothing"); }
+        None => {
+            println!("Nothing");
+        }
     }
 
     collection_names
@@ -50,41 +52,41 @@ pub fn parse_collection_stats(stats: serde_json::Value) -> MagicEdenCollection {
     let symbol = match stats.get("symbol") {
         Some(_value) => match stats["symbol"].as_str() {
             Some(value) => value,
-            None => "unknown symbol"
+            None => "unknown symbol",
         },
-        None => "unknown symbol"
+        None => "unknown symbol",
     };
 
     let avg_price = match stats.get("avgPrice24hr") {
         Some(_value) => match stats["avgPrice24hr"].as_f64() {
             Some(value) => value / LAMPORTS_PER_SOL,
-            None => 0.0
+            None => 0.0,
         },
-        None => 0.0
+        None => 0.0,
     };
 
     let floor_price = match stats.get("floorPrice") {
         Some(_value) => match stats["floorPrice"].as_f64() {
             Some(value) => value / LAMPORTS_PER_SOL,
-            None => 0.0
+            None => 0.0,
         },
-        None => 0.0
+        None => 0.0,
     };
 
     let listed_count = match stats.get("listedCount") {
         Some(_value) => match stats["listedCount"].as_i64() {
             Some(value) => value,
-            None => 0i64
+            None => 0i64,
         },
-        None => 0i64
+        None => 0i64,
     };
 
     let volume_all = match stats.get("volumeAll") {
         Some(_value) => match stats["volumeAll"].as_f64() {
             Some(value) => value / LAMPORTS_PER_SOL,
-            None => 0.0
+            None => 0.0,
         },
-        None => 0.0
+        None => 0.0,
     };
 
     MagicEdenCollection {
@@ -92,6 +94,6 @@ pub fn parse_collection_stats(stats: serde_json::Value) -> MagicEdenCollection {
         avg_price,
         floor_price,
         listed_count,
-        volume_all
+        volume_all,
     }
 }
