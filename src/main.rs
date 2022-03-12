@@ -144,13 +144,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut unknown_symbols = 0;
     let empty: i64 = database.client.query("SELECT COUNT(*) FROM retriever_state", &[]).await?[0].get(0);
     let mut last_known_collection: &str = "";
-    let mut last_known_finished_loop: bool = false;
     let row = database.client.query("SELECT symbol, finished_loop FROM retriever_state", &[]).await?;
     if empty != 0 {
         let symbol_temp: &str = row[0].get(0);
-        let finished_loop_temp: bool = row[0].get(1);
         last_known_collection = symbol_temp.clone();
-        last_known_finished_loop = finished_loop_temp.clone();
     }
     let mut futs = FuturesOrdered::new();
     loop {
@@ -193,7 +190,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 ",
             &[url, &finished_loop]).await?;
 
-            // Once we reach 100 requests, await current batch
             let mut data_inserted = 0;
             if futs.len() == ME_MAX_REQUESTS {
                 info!("Reached max number of collections received. \
@@ -250,18 +246,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 info!("Waiting a minute to avoid TooManyRequests HTTP error");
                 unknown_symbols = 0;
                 tokio::time::sleep(Duration::from_secs(60)).await;
-
             }
         }
-        // Once loop is finished mark it as true
         info!("Iteration of collection complete. Reiteration beginning soon.");
         finished_loop = true;
-        // database.client.execute(
-        //     "
-        //     UPDATE retriever_state
-        //     SET finished_loop = $1 WHERE symbol_id = 1
-        //     ",
-        // &[&finished_loop]);
     }
 
     Ok(())
