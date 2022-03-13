@@ -45,22 +45,6 @@ pub fn parse_collection_names(data: serde_json::Value) -> Vec<String> {
 }
 
 pub fn parse_collection_stats(stats: serde_json::Value) -> MagicEdenCollection {
-    // let endpoint = format!("https://api-mainnet.magiceden.dev/v2/collections/{}/stats", name);
-    //
-    // let mut res = surf::get(&endpoint).await?;
-    // dbg!(res.status());
-    //
-    // if res.status() == surf::StatusCode::TooManyRequests {
-    //     println!("Too many request sent. Sleeping for 1 minute.");
-    //     tokio::time::sleep(Duration::from_secs(60)).await;
-    //     res = surf::get(&endpoint).await?;
-    //     dbg!(res.status());
-    // }
-    //
-    // let stats: serde_json::Value = res.body_json().await?;
-
-    // dbg!(&stats);
-
     let symbol = match stats.get("symbol") {
         Some(_value) => match stats["symbol"].as_str() {
             Some(value) => value,

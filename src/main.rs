@@ -1,23 +1,18 @@
 #![allow(unreachable_code)]
 
-use std::env;
 use std::error::Error;
 use std::time::Duration;
-use std::{fs::File, sync::Arc};
 
-// use log::{info, debug, error};
-// use env_logger;
-use futures::stream::{self, StreamExt};
+use futures::stream::{FuturesOrdered, StreamExt};
 
-use tracing::{debug, error, info, trace, warn, Level};
-use tracing_core::Metadata;
+use tracing::{debug, info, trace, warn, Level};
 use tracing_subscriber;
-use tracing_subscriber::prelude::*;
 
 use tracing_appender;
 
 mod utils;
-use utils::config_reader::{parse_yaml, read_file, Config};
+use utils::config_reader::{read_file, Config};
+use utils::parse::parse_yaml;
 
 mod magiceden;
 use magiceden::parse::{parse_collection_names, parse_collection_stats};
@@ -26,7 +21,6 @@ use magiceden::requests::get_collection_names;
 mod database;
 
 use crate::magiceden::requests::ME_MAX_REQUESTS;
-use crate::stream::{FuturesOrdered, FuturesUnordered};
 use database::db_connection::Database;
 
 mod built_info {
@@ -41,8 +35,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Issue with trace_path! Reason: {}", e);
         }
     };
-    let mut file_appender = tracing_appender::rolling::hourly(log_path, "retriever.log");
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let file_appender = tracing_appender::rolling::hourly(log_path, "retriever.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
         .with_ansi(false)
@@ -192,16 +186,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?[0]
         .get(0);
     let mut last_known_collection: &str = "";
-    let mut last_known_finished_loop: bool = false;
     let row = database
         .client
         .query("SELECT symbol, finished_loop FROM retriever_state", &[])
         .await?;
     if empty != 0 {
         let symbol_temp: &str = row[0].get(0);
-        let finished_loop_temp: bool = row[0].get(1);
         last_known_collection = symbol_temp.clone();
-        last_known_finished_loop = finished_loop_temp.clone();
     }
     let mut futs = FuturesOrdered::new();
     loop {
@@ -236,7 +227,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     trace!("url does not match last known url before crash! Skipping");
                     continue;
                 } else {
-                    // Set last_known_connection to be an 'empty'
                     last_known_collection = "";
                     info!("Continuing from last known collection: {}", url);
                 }
@@ -256,7 +246,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .await?;
 
-            // Once we reach 100 requests, await current batch
             let mut data_inserted = 0;
             if futs.len() == ME_MAX_REQUESTS {
                 info!(
@@ -264,7 +253,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Attempting to unload data into database..."
                 );
                 while let Some(res) = futs.next().await {
-                    //dbg!(&res.as_ref().unwrap().status());
                     match res {
                         Ok(ref val) => {
                             if val.status() == surf::StatusCode::Ok {
@@ -278,8 +266,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 };
 
                                 let magiceden_stats = parse_collection_stats(data);
-
-                                //dbg!("{:?}", &magiceden_stats);
 
                                 debug!("{:?}", &magiceden_stats);
 
@@ -335,15 +321,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 tokio::time::sleep(Duration::from_secs(60)).await;
             }
         }
-        // Once loop is finished mark it as true
         info!("Iteration of collection complete. Reiteration beginning soon.");
         finished_loop = true;
-        // database.client.execute(
-        //     "
-        //     UPDATE retriever_state
-        //     SET finished_loop = $1 WHERE symbol_id = 1
-        //     ",
-        // &[&finished_loop]);
     }
 
     Ok(())

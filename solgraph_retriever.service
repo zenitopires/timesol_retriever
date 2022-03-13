@@ -1,5 +1,5 @@
 [Unit]
-Description=solgraph retriever service that gathers information about collections from magicedenm
+Description=solgraph retriever service that gathers information about collections from magiceden
 After=network.target
 
 [Service]
