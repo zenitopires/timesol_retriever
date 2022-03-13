@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::time::Duration;
 
-use futures::stream::{StreamExt, FuturesOrdered};
+use futures::stream::{FuturesOrdered, StreamExt};
 
 use tracing::{debug, info, trace, warn, Level};
 use tracing_subscriber;
@@ -12,7 +12,7 @@ use tracing_appender;
 
 mod utils;
 use utils::config_reader::{read_file, Config};
-use utils::parse::{parse_yaml};
+use utils::parse::parse_yaml;
 
 mod magiceden;
 use magiceden::parse::{parse_collection_names, parse_collection_stats};
