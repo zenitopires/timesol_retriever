@@ -1,9 +1,4 @@
-use log::{error, info, warn};
-
-use std::error::Error;
-
-use tokio_postgres::tls::{MakeTlsConnect, NoTlsStream};
-use tokio_postgres::{Client, Connection, Socket};
+use tracing::{error, info};
 
 use crate::utils;
 use utils::config_reader::Config;
@@ -20,27 +15,6 @@ impl Database {
         );
 
         let (client, connection) =
-            match tokio_postgres::connect(cnxn_str.as_str(), tokio_postgres::NoTls).await {
-                Ok(value) => {
-                    info!("Connection to DB was successful.");
-                    value
-                }
-                Err(e) => {
-                    error!("Failed to connect to {}", db_config.dbname);
-                    panic!(
-                        "Failed to \
-            connect. Reason: {}",
-                        e
-                    );
-                }
-            };
-
-        let cnxn_str = format!(
-            "host={} user={} password={} dbname={}",
-            db_config.host, db_config.user, db_config.password, db_config.dbname
-        );
-
-        let (client, connection) =
             tokio_postgres::connect(cnxn_str.as_str(), tokio_postgres::NoTls).await?;
 
         tokio::spawn(async move {
@@ -50,7 +24,7 @@ impl Database {
                     info!("DB connection was successful");
                 }
                 Err(e) => {
-                    warn!("Connection failed! Reason: {}", e);
+                    error!("Connection failed! Reason: {}", e);
                 }
             }
         });
