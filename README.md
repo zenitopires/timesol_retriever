@@ -2,10 +2,9 @@
 
 ## Background
 Solgraph seeks to make data about a number of Solana NFT projects easily digestible for NFT buyers.
-The data provided will show you hourly/daily/weekly trends about a particular collection. This data is collected by the Retriever, it will make asynchronous requests to the MagicEden API and shuffle them into the PostgreSQL database.
+The data provided will show you hourly/daily/weekly trends about a particular collection. 
 
-This repository houses the code responsible for fetching the data and inserting data into our PostgreSQL
-database that uses the TimescaleDB extension for time-series data.
+This data is collected by the Retriever, it will make asynchronous requests to the MagicEden API and shuffle them into the PostgreSQL database. 
 
 ## Stack
 * Rust --> For awesomeness, fast, robust, simple, and safe code is the best code, that's why we use Rust.
