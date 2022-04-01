@@ -9,6 +9,7 @@ use tracing::{debug, info, trace, warn, Level};
 use tracing_subscriber;
 
 use tracing_appender;
+use tracing_subscriber::registry::Data;
 
 mod utils;
 use utils::config_reader::{read_file, Config};
@@ -70,6 +71,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let database = Database::connect(db_config).await?;
 
+    database.initialize_database();
+
+    // initialize_database(&database);
+
     let data = tokio::task::spawn_blocking(|| match get_collection_names() {
         Some(value) => value,
         None => serde_json::from_str("{}").unwrap(),
@@ -78,53 +83,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .expect("Thread panicked!");
 
     let collection_names = parse_collection_names(data);
-
-    // Enable TimescaleDB Extension
-    database
-        .client
-        .execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[])
-        .await?;
-
-    database
-        .client
-        .execute(
-            "
-        CREATE TABLE IF NOT EXISTS collection_names (
-            symbol      varchar(255)    NOT NULL,
-            PRIMARY KEY (symbol)
-        )
-    ",
-            &[],
-        )
-        .await?;
-
-    database
-        .client
-        .execute(
-            "
-        CREATE TABLE IF NOT EXISTS retriever_state (
-            symbol          varchar(255),
-            finished_loop   boolean,
-            symbol_id       bigint,
-            time            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY     (symbol_id)
-        )",
-            &[],
-        )
-        .await?;
-
-    // Insert some data so that we can update something later on
-    database
-        .client
-        .execute(
-            "
-        INSERT INTO retriever_state (symbol, finished_loop, symbol_id, time)
-        VALUES('empty', false, '1', CURRENT_TIMESTAMP)
-        ON CONFLICT DO NOTHING
-        ",
-            &[],
-        )
-        .await?;
 
     for symbol in &collection_names {
         database
@@ -137,36 +95,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             )
             .await?;
     }
-
-    database
-        .client
-        .execute(
-            "
-        CREATE TABLE IF NOT EXISTS collection_stats (
-            symbol          varchar(255)        NOT NULL,
-            floor_price     double precision,
-            total_volume    double precision,
-            total_listed    bigint,
-            avg_24h_price   double precision,
-            date            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )",
-            &[],
-        )
-        .await?;
-
-    database
-        .client
-        .execute(
-            "
-        SELECT create_hypertable(
-            'collection_stats',
-            'date',
-            chunk_time_interval => INTERVAL '1 Day',
-            if_not_exists => TRUE
-        )",
-            &[],
-        )
-        .await?;
 
     let mut urls = vec![];
 
