@@ -1,5 +1,5 @@
-use tracing::{error, info};
 use std::error::Error;
+use tracing::{error, info};
 
 use crate::utils;
 use utils::config_reader::Config;
@@ -33,17 +33,14 @@ impl Database {
         Ok(Self { client })
     }
 
-    pub // Create required tables and initialize some of them
-    async fn initialize_database(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn initialize_database(&self) -> Result<(), Box<dyn Error>> {
         println!("Going ham");
         // Enable TimescaleDB Extension
-        self
-            .client
+        self.client
             .execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[])
             .await?;
 
-        self
-            .client
+        self.client
             .execute(
                 "
         CREATE TABLE IF NOT EXISTS collection_names (
@@ -55,8 +52,7 @@ impl Database {
             )
             .await?;
 
-        self
-            .client
+        self.client
             .execute(
                 "
         CREATE TABLE IF NOT EXISTS retriever_state (
@@ -71,8 +67,7 @@ impl Database {
             .await?;
 
         // Insert some data so that we can update something later on
-        self
-            .client
+        self.client
             .execute(
                 "
         INSERT INTO retriever_state (symbol, finished_loop, symbol_id, time)
@@ -83,8 +78,7 @@ impl Database {
             )
             .await?;
 
-        self
-            .client
+        self.client
             .execute(
                 "
         CREATE TABLE IF NOT EXISTS collection_stats (
@@ -99,8 +93,7 @@ impl Database {
             )
             .await?;
 
-        self
-            .client
+        self.client
             .execute(
                 "
         SELECT create_hypertable(
