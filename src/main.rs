@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut unknown_symbols = 0;
     let mut last_known_collection = match database.last_known_collection().await {
         Some(value) => value,
-        None => String::from("")
+        None => String::from(""),
     };
     let mut futs = FuturesOrdered::new();
     loop {
