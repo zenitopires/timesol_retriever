@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let database = Database::connect(db_config).await?;
 
-    database.initialize_database();
+    database.initialize_database().await?;
 
     // initialize_database(&database);
 
@@ -108,20 +108,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut finished_loop: bool = false;
     let mut unknown_symbols = 0;
-    let empty: i64 = database
-        .client
-        .query("SELECT COUNT(*) FROM retriever_state", &[])
-        .await?[0]
-        .get(0);
-    let mut last_known_collection: &str = "";
-    let row = database
-        .client
-        .query("SELECT symbol, finished_loop FROM retriever_state", &[])
-        .await?;
-    if empty != 0 {
-        let symbol_temp: &str = row[0].get(0);
-        last_known_collection = symbol_temp.clone();
-    }
+    let mut last_known_collection = match database.last_known_collection().await {
+        Some(value) => value,
+        None => String::from("")
+    };
     let mut futs = FuturesOrdered::new();
     loop {
         if finished_loop {
@@ -151,11 +141,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // TODO: Update collection names
         for url in &urls {
             if last_known_collection != "" && last_known_collection != "empty" {
-                if url != last_known_collection {
+                if url.as_str() != last_known_collection {
                     trace!("url does not match last known url before crash! Skipping");
                     continue;
                 } else {
-                    last_known_collection = "";
+                    last_known_collection = String::from("");
                     info!("Continuing from last known collection: {}", url);
                 }
             }
