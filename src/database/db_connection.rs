@@ -1,4 +1,4 @@
-use tracing::{error, info, trace};
+use tracing::{error, info};
 use std::error::Error;
 
 use crate::utils;
@@ -114,28 +114,5 @@ impl Database {
             .await?;
 
         Ok(())
-    }
-
-    pub async fn last_known_collection(&self) -> Option<String> {
-        let mut last_known_collection: &str = "";
-        let empty: i64 = match self
-            .client
-            .query("SELECT COUNT(*) FROM retriever_state", &[])
-            .await {
-            Ok(row) => row[0].get(0),
-            Err(e) => { panic!("Could not fetch last retriever state. Reason {}", e); }
-        };
-        let row = match self
-            .client
-            .query("SELECT symbol, finished_loop FROM retriever_state", &[])
-            .await {
-            Ok(row) => row,
-            Err(e) => { panic!("Could not fetch last known collection. Reason {}", e); }
-        };
-        if empty != 0 {
-            let symbol_temp: &str = row[0].get(0);
-            last_known_collection = symbol_temp.clone();
-        }
-        Some(last_known_collection.to_string())
     }
 }
