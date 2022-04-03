@@ -1426,6 +1426,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
+name = "retriever"
+version = "1.0.0"
+dependencies = [
+ "built",
+ "env_logger",
+ "futures",
+ "log",
+ "redis",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "surf",
+ "tokio",
+ "tokio-postgres",
+ "tracing",
+ "tracing-appender",
+ "tracing-core",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1640,27 +1661,6 @@ checksum = "66d72b759436ae32898a2af0a14218dbf55efde3feeb170eb623637db85ee1e0"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "solgraph_retriever"
-version = "0.1.0"
-dependencies = [
- "built",
- "env_logger",
- "futures",
- "log",
- "redis",
- "serde",
- "serde_json",
- "serde_yaml",
- "surf",
- "tokio",
- "tokio-postgres",
- "tracing",
- "tracing-appender",
- "tracing-core",
- "tracing-subscriber",
 ]
 
 [[package]]

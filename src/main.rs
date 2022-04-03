@@ -23,10 +23,7 @@ mod database;
 
 use crate::magiceden::requests::ME_MAX_REQUESTS;
 use database::db_connection::Database;
-
-mod built_info {
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}
+use crate::utils::pkg_info::pkg_info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -44,16 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_writer(non_blocking)
         .init();
     // tracing_subscriber::fmt().with_max_level(Level::TRACE).init();
-    info!(
-        "Starting {}, version: {}",
-        built_info::PKG_NAME,
-        built_info::PKG_VERSION
-    );
-    info!("Host: {}", built_info::HOST);
-    info!("Built for {}", built_info::TARGET);
-    info!("Package authors: {}", built_info::PKG_AUTHORS);
-    info!("Repository: {}", built_info::PKG_REPOSITORY);
-    info!("Beginning collection retrieval...");
+    pkg_info();
 
     let config_path = match std::env::var("config_path") {
         Ok(val) => val,
@@ -73,16 +61,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     database.initialize_database().await?;
 
-    // initialize_database(&database);
-
-    let data = tokio::task::spawn_blocking(|| match get_collection_names() {
+    let collections = tokio::task::spawn_blocking(|| match get_collection_names() {
         Some(value) => value,
         None => serde_json::from_str("{}").unwrap(),
     })
     .await
     .expect("Thread panicked!");
 
-    let collection_names = parse_collection_names(data);
+    let collection_names = parse_collection_names(collections);
 
     for symbol in &collection_names {
         database
