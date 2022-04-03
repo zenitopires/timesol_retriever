@@ -14,6 +14,7 @@ use tracing_subscriber::registry::Data;
 mod utils;
 use utils::config_reader::{read_file, Config};
 use utils::parse::parse_yaml;
+use utils::pkg_info::pkg_info;
 
 mod magiceden;
 use magiceden::parse::{parse_collection_names, parse_collection_stats};
@@ -21,9 +22,8 @@ use magiceden::requests::get_collection_names;
 
 mod database;
 
-use crate::magiceden::requests::ME_MAX_REQUESTS;
+use magiceden::requests::ME_MAX_REQUESTS;
 use database::db_connection::Database;
-use crate::utils::pkg_info::pkg_info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
