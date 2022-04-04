@@ -106,11 +106,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         // TODO: Update collection names
         for url in &urls {
-            if last_known_collection != "" && last_known_collection != "empty" {
+            if !last_known_collection.is_empty() {
                 if url.as_str() != last_known_collection {
                     trace!("url does not match last known url before crash! Skipping");
                     continue;
                 } else {
+                    // Once the last known collection is found, reset it so that the retriever
+                    // can continue collecting the remaining collections
                     last_known_collection = String::from("");
                     info!("Continuing from last known collection: {}", url);
                 }
