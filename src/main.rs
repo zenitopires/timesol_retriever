@@ -22,8 +22,8 @@ use magiceden::requests::get_collection_names;
 
 mod database;
 
-use magiceden::requests::ME_MAX_REQUESTS;
 use database::db_connection::Database;
+use magiceden::requests::ME_MAX_REQUESTS;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

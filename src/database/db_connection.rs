@@ -139,8 +139,7 @@ impl Database {
     }
 
     pub async fn reset_rt_state(&self) -> Result<(), Box<dyn Error>> {
-        self
-            .client
+        self.client
             .execute(
                 "
                 DELETE from retriever_state
@@ -149,8 +148,7 @@ impl Database {
                 &[],
             )
             .await?;
-        self
-            .client
+        self.client
             .execute(
                 "
                 INSERT INTO retriever_state (symbol, finished_loop, symbol_id, time)
