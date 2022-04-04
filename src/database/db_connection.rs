@@ -137,4 +137,29 @@ impl Database {
         }
         Some(last_known_collection.to_string())
     }
+
+    pub async fn reset_rt_state(&self) -> Result<(), Box<dyn Error>> {
+        self
+            .client
+            .execute(
+                "
+                DELETE from retriever_state
+                WHERE symbol_id = 1
+                ",
+                &[],
+            )
+            .await?;
+        self
+            .client
+            .execute(
+                "
+                INSERT INTO retriever_state (symbol, finished_loop, symbol_id, time)
+                VALUES('empty', false, '1', CURRENT_TIMESTAMP)
+                ON CONFLICT DO NOTHING
+                ",
+                &[],
+            )
+            .await?;
+        Ok(())
+    }
 }

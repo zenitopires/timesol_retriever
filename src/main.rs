@@ -102,27 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         if finished_loop {
             finished_loop = false;
-            database
-                .client
-                .execute(
-                    "
-                DELETE from retriever_state
-                WHERE symbol_id = 1
-                ",
-                    &[],
-                )
-                .await?;
-            database
-                .client
-                .execute(
-                    "
-                INSERT INTO retriever_state (symbol, finished_loop, symbol_id, time)
-                VALUES('empty', false, '1', CURRENT_TIMESTAMP)
-                ON CONFLICT DO NOTHING
-                ",
-                    &[],
-                )
-                .await?;
+            database.reset_rt_state().await?;
         }
         // TODO: Update collection names
         for url in &urls {
