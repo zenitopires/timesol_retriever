@@ -93,13 +93,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut finished_loop: bool = false;
-    let mut unknown_symbols = 0;
     let mut last_known_collection = match database.last_known_collection().await {
         Some(value) => value,
         None => String::from(""),
     };
-    let mut futs = FuturesOrdered::new();
     loop {
+        let mut futs = FuturesOrdered::new();
+        let mut unknown_symbols = 0;
         if finished_loop {
             finished_loop = false;
             database.reset_rt_state().await?;
