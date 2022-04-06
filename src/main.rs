@@ -22,6 +22,7 @@ use magiceden::requests::get_collection_names;
 
 mod database;
 
+use crate::magiceden::requests::check_futures;
 use database::db_connection::Database;
 use magiceden::requests::ME_MAX_REQUESTS;
 
@@ -132,80 +133,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .await?;
 
-            let mut data_inserted = 0;
-            if futs.len() == ME_MAX_REQUESTS {
-                info!(
-                    "Reached max number of collections received. \
-                Attempting to unload data into database..."
-                );
-                while let Some(res) = futs.next().await {
-                    match res {
-                        Ok(ref val) => {
-                            if val.status() == surf::StatusCode::Ok {
-                                info!("Status OK. Attempting to get stats from MagicEden.");
-                                let data: serde_json::Value = match res.unwrap().body_json().await {
-                                    Ok(value) => value,
-                                    Err(e) => {
-                                        warn!("Error occured: {}. Will use an empty JSON.", e);
-                                        serde_json::from_str("{}").unwrap()
-                                    }
-                                };
-
-                                let magiceden_stats = parse_collection_stats(data);
-
-                                debug!("{:?}", &magiceden_stats);
-
-                                if magiceden_stats.symbol == "unknown symbol" {
-                                    unknown_symbols += 1;
-                                } else {
-                                    database
-                                        .client
-                                        .execute(
-                                            "
-                        INSERT INTO collection_stats
-                        (symbol, floor_price, total_volume,
-                         total_listed, avg_24h_price, date)
-                        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-                            ON CONFLICT DO NOTHING
-                    ",
-                                            &[
-                                                &magiceden_stats.symbol,
-                                                &magiceden_stats.floor_price,
-                                                &magiceden_stats.volume_all,
-                                                &magiceden_stats.listed_count,
-                                                &magiceden_stats.avg_price,
-                                            ],
-                                        )
-                                        .await?;
-                                    data_inserted += 1;
-                                }
-                            } else {
-                                warn!("Status was not OK. Skipping.");
-                                continue;
-                            }
-                        }
-                        Err(e) => {
-                            warn!("Issue with response: {}", e);
-                        }
-                    }
-                }
-                info!(
-                    "Unknown collections received: {}. {}",
-                    unknown_symbols,
-                    if unknown_symbols > 0 {
-                        "Will not add them to database."
-                    } else {
-                        ""
-                    }
-                );
-                info!(
-                    "Number of collections inserted into database: {}/{}",
-                    data_inserted, ME_MAX_REQUESTS
-                );
-                info!("Waiting a minute to avoid TooManyRequests HTTP error");
-                unknown_symbols = 0;
-                tokio::time::sleep(Duration::from_secs(60)).await;
-            }
+            check_futures(&database, &mut futs, &mut unknown_symbols).await?;
         }
         info!("Iteration of collection complete. Reiteration beginning soon.");
         finished_loop = true;
