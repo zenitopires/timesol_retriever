@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use tracing::{error, info, warn, trace, debug};
-use tokio::time::Duration;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use surf::RequestBuilder;
+use tokio::time::Duration;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::utils;
 use utils::config_reader::Config;
@@ -169,14 +169,15 @@ impl Database {
         Ok(())
     }
 
-    pub async fn check_futures(&self,
+    pub async fn check_futures(
+        &self,
         futs: &mut FuturesOrdered<RequestBuilder>,
     ) -> Result<(), Box<dyn Error>> {
         if futs.len() == ME_MAX_REQUESTS {
             info!(
-            "Reached max number of collections received. \
+                "Reached max number of collections received. \
                 Attempting to unload data into database..."
-        );
+            );
             self.insert_batch(futs).await?;
             // insert_batch(, futs, unknown_symbols, &mut data_inserted).await?;
 
@@ -187,7 +188,8 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_batch(&self,
+    async fn insert_batch(
+        &self,
         futs: &mut FuturesOrdered<RequestBuilder>,
     ) -> Result<(), Box<dyn Error>> {
         while let Some(res) = futs.next().await {
@@ -208,10 +210,9 @@ impl Database {
                         debug!("{:?}", &magiceden_stats);
 
                         if magiceden_stats.symbol == "unknown symbol" {
-                            continue
+                            continue;
                         } else {
-                            self
-                                .client
+                            self.client
                                 .execute(
                                     "
                         INSERT INTO collection_stats
