@@ -22,7 +22,6 @@ use magiceden::requests::get_collection_names;
 
 mod database;
 
-use crate::magiceden::requests::check_futures;
 use database::db_connection::Database;
 use magiceden::requests::ME_MAX_REQUESTS;
 
