@@ -132,7 +132,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .await?;
 
-            // check_futures(&database, &mut futs, &mut unknown_symbols).await?;
             database.check_futures(&mut futs).await?;
         }
         info!("Iteration of collection complete. Reiteration beginning soon.");
