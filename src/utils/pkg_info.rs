@@ -1,4 +1,4 @@
-use tracing::{debug, info, trace, warn, Level};
+use tracing::info;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));

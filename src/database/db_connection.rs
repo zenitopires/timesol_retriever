@@ -4,7 +4,7 @@ use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use surf::RequestBuilder;
 use tokio::time::Duration;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::utils;
 use utils::config_reader::Config;

@@ -1,15 +1,13 @@
 #![allow(unreachable_code)]
 
 use std::error::Error;
-use std::time::Duration;
 
-use futures::stream::{FuturesOrdered, StreamExt};
+use futures::stream::FuturesOrdered;
 
-use tracing::{debug, info, trace, warn, Level};
+use tracing::{info, trace, Level};
 use tracing_subscriber;
 
 use tracing_appender;
-use tracing_subscriber::registry::Data;
 
 mod utils;
 use utils::config_reader::{read_file, Config};
@@ -17,13 +15,12 @@ use utils::parse::parse_yaml;
 use utils::pkg_info::pkg_info;
 
 mod magiceden;
-use magiceden::parse::{parse_collection_names, parse_collection_stats};
+use magiceden::parse::parse_collection_names;
 use magiceden::requests::get_collection_names;
 
 mod database;
 
 use database::db_connection::Database;
-use magiceden::requests::ME_MAX_REQUESTS;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -99,7 +96,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     loop {
         let mut futs = FuturesOrdered::new();
-        let mut unknown_symbols = 0;
         if finished_loop {
             finished_loop = false;
             database.reset_rt_state().await?;

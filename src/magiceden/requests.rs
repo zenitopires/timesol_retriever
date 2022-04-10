@@ -1,10 +1,7 @@
-use log::{debug, info, trace, warn};
-use std::error::Error;
-use surf::RequestBuilder;
+use log::{debug, info};
 
 pub const ME_MAX_REQUESTS: usize = 100;
 
-use crate::{parse_collection_stats, Database, FuturesOrdered, StreamExt};
 use tokio::time::Duration;
 
 #[tokio::main]
