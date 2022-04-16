@@ -1,10 +1,7 @@
 # Retriever
 
 ## Background
-Solgraph seeks to make data about a number of Solana NFT projects easily digestible for NFT buyers.
-The data provided will show you hourly/daily/weekly trends about a particular collection. 
-
-This data is collected by the Retriever, it will make asynchronous requests to the MagicEden API and shuffle them into the PostgreSQL database. 
+The Retriever is a microservice that collects data about NFTs from MagicEden, the most popular Solana NFT marketplace. The data collected will be useful for NFT buyers who can utilize this data to see trends about a particular collection.
 
 ## How to Run Retriever
 
