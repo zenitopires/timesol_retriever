@@ -10,8 +10,11 @@ Set environment variables in the service
 * config_path -- Path to DB credentials
 * trace_path -- Set location to where trace files should be saved
 
-The DB credentials configuration is in YAML format
+The DB credentials configuration is in YAML format:
+
+```
 user: <postgres-username>
 password: <postgres-password>
 host: <postgres-server-address>
 dbname: magiceden
+```
