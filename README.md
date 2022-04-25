@@ -26,3 +26,5 @@ dbname: magiceden
 * `sudo systemctl start retriever.service`
 ### Check service status for any errors
 * `systemctl status retriever.service`
+
+You should start seeing data in your database if everything ran correctly.
