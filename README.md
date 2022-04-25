@@ -5,6 +5,9 @@ The Retriever is one of the timeSol microservices, responsible for the collectio
 
 ## How to Run Retriever
 
+### Create a database called 'magiceden' in Postgres
+You can change the name if you'd like, but the code uses this database name in the code. I'll probably change this to depend upon Cargo.toml in the future.
+
 Set environment variables in the service
 
 * config_path -- Path to DB credentials
