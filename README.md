@@ -8,7 +8,7 @@ The Retriever is one of the timeSol microservices, responsible for the collectio
 ### Create a database called 'magiceden' in Postgres
 You can change the name if you'd like, but the code uses this database name in the code. I'll probably change this to depend upon Cargo.toml in the future.
 
-Set environment variables in the service
+### Set the following environment variables in the retriever.service
 
 * config_path -- Path to DB credentials
 * trace_path -- Set location to where trace files should be saved
