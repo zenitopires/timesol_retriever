@@ -18,3 +18,11 @@ password: <postgres-password>
 host: <postgres-server-address>
 dbname: magiceden
 ```
+### Add service to systemd
+* `cp retriever.service /etc/systemd/system/`
+### Enable the service at startup
+* `sudo systemctl enable retriever.service`
+### Start the service
+* `sudo systemctl start retriever.service`
+### Check service status for any errors
+* `systemctl status retriever.service`
