@@ -1,6 +1,6 @@
 # Retriever
 
-See the API live [here](https://api.timesol.sh).
+See the API live [here](https://www.timesol.sh).
 
 ## Background
 The Retriever is one of the timeSol microservices, responsible for the collection of NFT data from MagicEden, the most popular Solana NFT marketplace. The data collected will be useful for NFT buyers who can utilize this data to see trends about a particular collection.
