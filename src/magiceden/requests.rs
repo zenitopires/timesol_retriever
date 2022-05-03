@@ -3,6 +3,7 @@ use log::{debug, info};
 pub const ME_MAX_REQUESTS: usize = 120;
 
 use tokio::time::Duration;
+
 #[tokio::main]
 pub async fn get_collection_names() -> Option<serde_json::Value> {
     let endpoint = "https://api-mainnet.magiceden.dev/all_collections";
