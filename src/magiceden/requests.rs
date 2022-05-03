@@ -1,6 +1,6 @@
 use log::{debug, info};
 
-pub const ME_MAX_REQUESTS: usize = 100;
+pub const ME_MAX_REQUESTS: usize = 120;
 
 use tokio::time::Duration;
 #[tokio::main]
