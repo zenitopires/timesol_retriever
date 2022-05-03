@@ -42,12 +42,6 @@ impl Database {
     }
 
     pub async fn initialize_database(&self) -> Result<(), Box<dyn Error>> {
-//        println!("Going ham");
-        // Enable TimescaleDB Extension
- //       self.client
- //           .execute("CREATE EXTENSION IF NOT EXISTS timescaledb", &[])
- //           .await?;
-
         self.client
             .execute(
                 "
@@ -100,19 +94,6 @@ impl Database {
                 &[],
             )
             .await?;
-
- //       self.client
- //           .execute(
- //               "
- //       SELECT create_hypertable(
- //           'collection_stats',
- //           'date',
- //           chunk_time_interval => INTERVAL '1 Day',
- //           if_not_exists => TRUE
- //       )",
- //               &[],
- //           )
- //           .await?;
 
         Ok(())
     }
@@ -179,8 +160,6 @@ impl Database {
                 Attempting to unload data into database..."
             );
             self.insert_batch(futs).await?;
-            // insert_batch(, futs, unknown_symbols, &mut data_inserted).await?;
-
             info!("Waiting a minute to avoid TooManyRequests HTTP error");
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
